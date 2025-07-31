@@ -53,13 +53,16 @@ class SignInFragment : Fragment() {
             when (state) {
                 is SignInViewModel.SignInState.Loading -> {
                     showLoading(true)
+                    android.util.Log.d("SignInFragment", "Loading state")
                 }
                 is SignInViewModel.SignInState.Success -> {
                     showLoading(false)
+                    android.util.Log.d("SignInFragment", "Success state with role: ${state.userRole}")
                     navigateToDashboard(state.userRole)
                 }
                 is SignInViewModel.SignInState.Error -> {
                     showLoading(false)
+                    android.util.Log.e("SignInFragment", "Error state: ${state.message}")
                     showError(state.message)
                 }
             }

@@ -41,11 +41,13 @@ class DashboardActivity : AppCompatActivity(), NavigationView.OnNavigationItemSe
         
         // Check if user is authenticated
         if (auth.currentUser == null) {
+            android.util.Log.e("DashboardActivity", "No authenticated user found")
             goToSignIn()
             return
         }
         
         currentUserRole = intent.getStringExtra("user_role") ?: "unknown"
+        android.util.Log.d("DashboardActivity", "User role: $currentUserRole, User: ${auth.currentUser?.email}")
         
         // Set up toolbar
         setupToolbar()

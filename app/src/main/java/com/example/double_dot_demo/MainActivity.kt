@@ -62,8 +62,8 @@ class MainActivity : AppCompatActivity() {
     
     private fun checkCurrentUser() {
         val currentUser = auth.currentUser
-        if (currentUser != null && currentUser.isEmailVerified) {
-            // User is already signed in and email is verified, navigate to dashboard
+        if (currentUser != null) {
+            // User is already signed in, navigate to dashboard
             // Get user role from Firestore
             getUserRoleAndNavigate(currentUser.uid)
         } else {
@@ -114,6 +114,7 @@ class MainActivity : AppCompatActivity() {
     }
     
     fun navigateToDashboard(userRole: String) {
+        android.util.Log.d("MainActivity", "Navigating to dashboard with role: $userRole")
         val intent = Intent(this, DashboardActivity::class.java).apply {
             putExtra("user_role", userRole)
         }

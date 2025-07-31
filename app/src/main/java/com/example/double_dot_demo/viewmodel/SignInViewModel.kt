@@ -22,14 +22,8 @@ class SignInViewModel : ViewModel() {
                 if (task.isSuccessful) {
                     val user = auth.currentUser
                     if (user != null) {
-                        // Check if email is verified (optional - you can remove this check)
-                        if (user.isEmailVerified) {
-                            // Check user role from Firestore
-                            getUserRoleFromFirestore(user.uid, defaultRole)
-                        } else {
-                            // Email not verified, but still proceed (you can change this behavior)
-                            getUserRoleFromFirestore(user.uid, defaultRole)
-                        }
+                        // Check user role from Firestore
+                        getUserRoleFromFirestore(user.uid, defaultRole)
                     } else {
                         _signInState.value = SignInState.Error("Authentication failed")
                     }
