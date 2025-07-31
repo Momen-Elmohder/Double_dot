@@ -16,6 +16,7 @@ class TraineeAdapter(
     private val onEditClick: (Trainee) -> Unit,
     private val onDeleteClick: (Trainee) -> Unit,
     private val onTogglePayment: (Trainee) -> Unit,
+    private val onRenewClick: (Trainee) -> Unit,
     private val isCoachView: Boolean = false
 ) : RecyclerView.Adapter<TraineeAdapter.TraineeViewHolder>() {
 
@@ -30,6 +31,8 @@ class TraineeAdapter(
         val btnEdit: ImageView = itemView.findViewById(R.id.btnEdit)
         val btnDelete: ImageView = itemView.findViewById(R.id.btnDelete)
         val btnTogglePayment: ImageView = itemView.findViewById(R.id.btnTogglePayment)
+        val btnRenew: ImageView = itemView.findViewById(R.id.btnRenew)
+        val cardBackground: View = itemView.findViewById(R.id.cardBackground)
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): TraineeViewHolder {
@@ -41,6 +44,9 @@ class TraineeAdapter(
     override fun onBindViewHolder(holder: TraineeViewHolder, position: Int) {
         val trainee = trainees[position]
         
+        // Check if trainee is expired
+        val isExpired = isTraineeExpired(trainee)
+        
         holder.tvName.text = trainee.name
         
         if (isCoachView) {
@@ -51,6 +57,7 @@ class TraineeAdapter(
             holder.btnEdit.visibility = View.GONE
             holder.btnDelete.visibility = View.GONE
             holder.btnTogglePayment.visibility = View.GONE
+            holder.btnRenew.visibility = View.GONE
         } else {
             // Full view for head coaches and admins
             holder.tvDetails.text = buildDetailsText(trainee)
@@ -73,6 +80,16 @@ class TraineeAdapter(
             }
             holder.tvPaymentStatus.setTextColor(paymentColor)
 
+            // Show/hide renew button based on expiration
+            if (isExpired) {
+                holder.btnRenew.visibility = View.VISIBLE
+                holder.btnRenew.setOnClickListener {
+                    onRenewClick(trainee)
+                }
+            } else {
+                holder.btnRenew.visibility = View.GONE
+            }
+
             holder.btnEdit.setOnClickListener {
                 onEditClick(trainee)
             }
@@ -85,9 +102,22 @@ class TraineeAdapter(
                 onTogglePayment(trainee)
             }
         }
+        
+        // Set card background color based on expiration
+        if (isExpired) {
+            holder.cardBackground.setBackgroundColor(holder.itemView.context.getColor(R.color.error_light))
+        } else {
+            holder.cardBackground.setBackgroundColor(holder.itemView.context.getColor(R.color.background_light))
+        }
     }
 
     override fun getItemCount(): Int = trainees.size
+
+    private fun isTraineeExpired(trainee: Trainee): Boolean {
+        return trainee.endingDate?.let { endDate ->
+            endDate.toDate().before(Date())
+        } ?: false
+    }
 
     private fun buildDetailsText(trainee: Trainee): String {
         val details = mutableListOf<String>()

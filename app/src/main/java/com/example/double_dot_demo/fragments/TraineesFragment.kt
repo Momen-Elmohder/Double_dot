@@ -14,7 +14,9 @@ import com.example.double_dot_demo.R
 import com.example.double_dot_demo.adapters.TraineeAdapter
 import com.example.double_dot_demo.databinding.FragmentTraineesBinding
 import com.example.double_dot_demo.dialogs.AddTraineeDialog
+import com.example.double_dot_demo.dialogs.RenewTraineeDialog
 import com.example.double_dot_demo.models.Trainee
+import com.example.double_dot_demo.utils.NotificationHelper
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FirebaseFirestore
 import java.text.SimpleDateFormat
@@ -26,6 +28,7 @@ class TraineesFragment : Fragment() {
     private val binding get() = _binding!!
     private lateinit var firestore: FirebaseFirestore
     private lateinit var traineeAdapter: TraineeAdapter
+    private lateinit var notificationHelper: NotificationHelper
     private val trainees = mutableListOf<Trainee>()
     private val filteredTrainees = mutableListOf<Trainee>()
     private val coaches = mutableListOf<String>()
@@ -49,6 +52,7 @@ class TraineesFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
 
         firestore = FirebaseFirestore.getInstance()
+        notificationHelper = NotificationHelper(requireContext())
         
         // Get current user role from parent activity
         currentUserRole = (activity as? com.example.double_dot_demo.DashboardActivity)?.let { activity ->
@@ -84,6 +88,13 @@ class TraineesFragment : Fragment() {
                     togglePaymentStatus(trainee)
                 } else {
                     Toast.makeText(requireContext(), "You don't have permission to modify payment status", Toast.LENGTH_SHORT).show()
+                }
+            },
+            onRenewClick = { trainee ->
+                if (canRenewTrainee()) {
+                    showRenewTraineeDialog(trainee)
+                } else {
+                    Toast.makeText(requireContext(), "You don't have permission to renew trainees", Toast.LENGTH_SHORT).show()
                 }
             },
             isCoachView = currentUserRole == "coach"
@@ -194,6 +205,25 @@ class TraineesFragment : Fragment() {
 
         updateStats()
         traineeAdapter.notifyDataSetChanged()
+        
+        // Check for expired trainees and show notifications
+        checkExpiredTrainees()
+    }
+
+    private fun checkExpiredTrainees() {
+        val expiredTrainees = trainees.filter { trainee ->
+            trainee.endingDate?.let { endDate ->
+                endDate.toDate().before(Date())
+            } ?: false
+        }
+        
+        if (expiredTrainees.isNotEmpty()) {
+            if (expiredTrainees.size == 1) {
+                notificationHelper.showExpirationNotification(expiredTrainees.first())
+            } else {
+                notificationHelper.showBulkExpirationNotification(expiredTrainees)
+            }
+        }
     }
 
     private fun canAddTrainee(): Boolean {
@@ -209,6 +239,10 @@ class TraineesFragment : Fragment() {
     }
 
     private fun canTogglePayment(): Boolean {
+        return currentUserRole == "head_coach" || currentUserRole == "admin"
+    }
+
+    private fun canRenewTrainee(): Boolean {
         return currentUserRole == "head_coach" || currentUserRole == "admin"
     }
 
@@ -284,6 +318,14 @@ class TraineesFragment : Fragment() {
         dialog.show()
     }
 
+    private fun showRenewTraineeDialog(trainee: Trainee) {
+        val dialog = RenewTraineeDialog(requireContext(), trainee)
+        dialog.setOnRenewClickListener { trainee, newEndDate ->
+            renewTrainee(trainee, newEndDate)
+        }
+        dialog.show()
+    }
+
     private fun addTrainee(trainee: Trainee) {
         val traineeData = hashMapOf(
             "name" to trainee.name,
@@ -328,6 +370,22 @@ class TraineesFragment : Fragment() {
             }
             .addOnFailureListener { e ->
                 Toast.makeText(requireContext(), "Error updating trainee: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
+    }
+
+    private fun renewTrainee(trainee: Trainee, newEndDate: Timestamp) {
+        firestore.collection("trainees").document(trainee.id)
+            .update(
+                "endingDate", newEndDate,
+                "updatedAt", Timestamp.now()
+            )
+            .addOnSuccessListener {
+                Toast.makeText(requireContext(), "Trainee membership renewed successfully", Toast.LENGTH_SHORT).show()
+                // Cancel the notification for this trainee
+                notificationHelper.cancelNotification(trainee.id)
+            }
+            .addOnFailureListener { e ->
+                Toast.makeText(requireContext(), "Error renewing trainee: ${e.message}", Toast.LENGTH_SHORT).show()
             }
     }
 

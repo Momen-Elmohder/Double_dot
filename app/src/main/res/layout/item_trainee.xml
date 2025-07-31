@@ -9,6 +9,7 @@
     app:cardBackgroundColor="?attr/colorSurface">
 
     <LinearLayout
+        android:id="@+id/cardBackground"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
@@ -83,6 +84,17 @@
             android:layout_height="wrap_content"
             android:orientation="vertical"
             android:gravity="end">
+
+            <ImageView
+                android:id="@+id/btnRenew"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:src="@drawable/ic_calendar"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:padding="2dp"
+                android:layout_marginBottom="8dp"
+                android:contentDescription="Renew Membership"
+                android:visibility="gone" />
 
             <ImageView
                 android:id="@+id/btnTogglePayment"
