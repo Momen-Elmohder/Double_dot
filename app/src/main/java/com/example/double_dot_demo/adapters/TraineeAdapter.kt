@@ -21,6 +21,7 @@ class TraineeAdapter(
 ) : RecyclerView.Adapter<TraineeAdapter.TraineeViewHolder>() {
 
     private val dateFormat = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+    private val expandedPositions = mutableSetOf<Int>()
 
     class TraineeViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         val tvName: TextView = itemView.findViewById(R.id.tvName)
@@ -32,6 +33,15 @@ class TraineeAdapter(
         val btnTogglePayment: ImageView = itemView.findViewById(R.id.btnTogglePayment)
         val btnRenew: ImageView = itemView.findViewById(R.id.btnRenew)
         val cardBackground: View = itemView.findViewById(R.id.cardBackground)
+        
+        // Expanded details views
+        val expandedDetails: View = itemView.findViewById(R.id.expandedDetails)
+        val tvExpandedAge: TextView = itemView.findViewById(R.id.tvExpandedAge)
+        val tvExpandedCoach: TextView = itemView.findViewById(R.id.tvExpandedCoach)
+        val tvExpandedFee: TextView = itemView.findViewById(R.id.tvExpandedFee)
+        val tvExpandedStartDate: TextView = itemView.findViewById(R.id.tvExpandedStartDate)
+        val tvExpandedEndDate: TextView = itemView.findViewById(R.id.tvExpandedEndDate)
+        val tvExpandedCreated: TextView = itemView.findViewById(R.id.tvExpandedCreated)
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): TraineeViewHolder {
@@ -57,6 +67,7 @@ class TraineeAdapter(
             holder.btnDelete.visibility = View.GONE
             holder.btnTogglePayment.visibility = View.GONE
             holder.btnRenew.visibility = View.GONE
+            holder.expandedDetails.visibility = View.GONE
         } else {
             // Full view for head coaches and admins
             holder.tvDetails.text = buildDetailsText(trainee)
@@ -100,6 +111,14 @@ class TraineeAdapter(
             holder.btnTogglePayment.setOnClickListener {
                 onTogglePayment(trainee)
             }
+
+            // Setup expanded details
+            setupExpandedDetails(holder, trainee)
+            
+            // Setup click listener for card expansion
+            holder.cardBackground.setOnClickListener {
+                toggleExpansion(position)
+            }
         }
         
         // Set card background color based on expiration
@@ -107,6 +126,53 @@ class TraineeAdapter(
             holder.cardBackground.setBackgroundColor(holder.itemView.context.getColor(R.color.error_light))
         } else {
             holder.cardBackground.setBackgroundColor(holder.itemView.context.getColor(R.color.background_light))
+        }
+    }
+
+    private fun setupExpandedDetails(holder: TraineeViewHolder, trainee: Trainee) {
+        // Populate expanded details
+        holder.tvExpandedAge.text = "Age: ${trainee.age}"
+        holder.tvExpandedCoach.text = "Coach: ${trainee.coachName}"
+        holder.tvExpandedFee.text = "Monthly Fee: $${trainee.monthlyFee}"
+        
+        trainee.startingDate?.let {
+            holder.tvExpandedStartDate.text = "Start Date: ${dateFormat.format(it.toDate())}"
+            holder.tvExpandedStartDate.visibility = View.VISIBLE
+        } ?: run {
+            holder.tvExpandedStartDate.visibility = View.GONE
+        }
+        
+        trainee.endingDate?.let {
+            holder.tvExpandedEndDate.text = "End Date: ${dateFormat.format(it.toDate())}"
+            holder.tvExpandedEndDate.visibility = View.VISIBLE
+        } ?: run {
+            holder.tvExpandedEndDate.visibility = View.GONE
+        }
+        
+        trainee.createdAt?.let {
+            holder.tvExpandedCreated.text = "Created: ${dateFormat.format(it.toDate())}"
+            holder.tvExpandedCreated.visibility = View.VISIBLE
+        } ?: run {
+            holder.tvExpandedCreated.visibility = View.GONE
+        }
+    }
+
+    private fun toggleExpansion(position: Int) {
+        if (expandedPositions.contains(position)) {
+            expandedPositions.remove(position)
+        } else {
+            expandedPositions.add(position)
+        }
+        notifyItemChanged(position)
+    }
+
+    override fun onBindViewHolder(holder: TraineeViewHolder, position: Int, payloads: List<Any>) {
+        if (payloads.isEmpty()) {
+            super.onBindViewHolder(holder, position, payloads)
+        } else {
+            // Update only the expanded state
+            val isExpanded = expandedPositions.contains(position)
+            holder.expandedDetails.visibility = if (isExpanded) View.VISIBLE else View.GONE
         }
     }
 
