@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    
+    <group android:checkableBehavior="single">
+        <item
+            android:id="@+id/nav_account"
+            android:icon="@drawable/ic_person"
+            android:title="Account" />
+        
+        <item
+            android:id="@+id/nav_settings"
+            android:icon="@drawable/ic_settings"
+            android:title="Settings" />
+        
+        <item
+            android:id="@+id/nav_expenses"
+            android:icon="@drawable/ic_payment"
+            android:title="Expenses" />
+    </group>
+    
+    <item android:title="Other">
+        <menu>
+            <item
+                android:id="@+id/nav_sign_out"
+                android:icon="@drawable/ic_logout"
+                android:title="Sign Out" />
+        </menu>
+    </item>
+    
+</menu> 
