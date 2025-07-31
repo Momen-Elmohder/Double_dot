@@ -28,6 +28,7 @@
                 android:textColor="?attr/colorOnSurface" />
 
             <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/btnAddEmployee"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Add Employee"
@@ -61,6 +62,7 @@
                     android:gravity="center">
 
                     <TextView
+                        android:id="@+id/tvTotalCount"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="8"
@@ -96,6 +98,7 @@
                     android:gravity="center">
 
                     <TextView
+                        android:id="@+id/tvCoachesCount"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="6"
@@ -104,6 +107,7 @@
                         android:textColor="?attr/colorPrimary" />
 
                     <TextView
+                        android:id="@+id/tvStatsTitle"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="Coaches"
