@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "675262611275",
+    "project_id": "doubledot-2487c",
+    "storage_bucket": "doubledot-2487c.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:675262611275:android:ca2c732af068f0382872ce",
+        "android_client_info": {
+          "package_name": "com.example.double_dot_demo"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCGWy1xyAMQV2X7DtPhaV2Hp80X01CDJn0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

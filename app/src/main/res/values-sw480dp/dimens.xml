@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Screen padding -->
+    <dimen name="screen_padding">20dp</dimen>
+    
+    <!-- Logo dimensions -->
+    <dimen name="logo_size">100dp</dimen>
+    <dimen name="logo_padding">20dp</dimen>
+    <dimen name="logo_margin_top">40dp</dimen>
+    <dimen name="logo_margin_bottom">40dp</dimen>
+    <dimen name="logo_text_margin">14dp</dimen>
+    
+    <!-- Text sizes -->
+    <dimen name="app_title_size">28sp</dimen>
+    <dimen name="app_subtitle_size">16sp</dimen>
+    <dimen name="signin_title_size">22sp</dimen>
+    <dimen name="button_text_size">15sp</dimen>
+    <dimen name="forgot_password_text_size">13sp</dimen>
+    
+    <!-- Margins -->
+    <dimen name="subtitle_margin">7dp</dimen>
+    <dimen name="card_margin">20dp</dimen>
+    <dimen name="card_horizontal_margin">6dp</dimen>
+    <dimen name="input_margin_bottom">14dp</dimen>
+    <dimen name="button_margin_bottom">20dp</dimen>
+    <dimen name="forgot_password_margin">14dp</dimen>
+    <dimen name="forgot_password_padding">7dp</dimen>
+    <dimen name="progress_margin_top">14dp</dimen>
+    
+    <!-- Card dimensions -->
+    <dimen name="card_padding">20dp</dimen>
+    <dimen name="card_corner_radius">14dp</dimen>
+    <dimen name="card_elevation">6dp</dimen>
+    
+    <!-- Button dimensions -->
+    <dimen name="button_height">52dp</dimen>
+    <dimen name="button_corner_radius">26dp</dimen>
+</resources> 
