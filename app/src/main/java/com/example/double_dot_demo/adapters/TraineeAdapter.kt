@@ -23,7 +23,6 @@ class TraineeAdapter(
     private val dateFormat = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
 
     class TraineeViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
-        val ivAvatar: ImageView = itemView.findViewById(R.id.ivAvatar)
         val tvName: TextView = itemView.findViewById(R.id.tvName)
         val tvDetails: TextView = itemView.findViewById(R.id.tvDetails)
         val tvStatus: TextView = itemView.findViewById(R.id.tvStatus)
