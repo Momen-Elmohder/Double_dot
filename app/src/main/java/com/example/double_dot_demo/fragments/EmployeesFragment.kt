@@ -1,9 +1,13 @@
 package com.example.double_dot_demo.fragments
 
 import android.os.Bundle
+import android.text.Editable
+import android.text.TextWatcher
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.ArrayAdapter
+import android.widget.AutoCompleteTextView
 import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -27,7 +31,13 @@ class EmployeesFragment : Fragment() {
     private lateinit var auth: FirebaseAuth
     private lateinit var employeeAdapter: EmployeeAdapter
     private val employees = mutableListOf<Employee>()
+    private val filteredEmployees = mutableListOf<Employee>()
     private var currentUserRole: String = ""
+    
+    // Search and sort variables
+    private var searchQuery: String = ""
+    private var sortBy: String = "name"
+    private var sortOrder: String = "asc"
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -52,12 +62,13 @@ class EmployeesFragment : Fragment() {
         setupRecyclerView()
         setupAddButton()
         setupRoleBasedUI()
+        setupSearchAndSort()
         loadEmployees()
     }
 
     private fun setupRecyclerView() {
         employeeAdapter = EmployeeAdapter(
-            employees = employees,
+            employees = filteredEmployees,
             onEditClick = { employee -> 
                 if (canEditEmployee(employee)) {
                     showEditEmployeeDialog(employee)
@@ -95,6 +106,83 @@ class EmployeesFragment : Fragment() {
         if (currentUserRole != "head_coach") {
             binding.btnAddEmployee.visibility = View.GONE
         }
+    }
+
+    private fun setupSearchAndSort() {
+        // Setup search functionality
+        binding.etSearch.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: Editable?) {
+                searchQuery = s.toString().trim()
+                filterAndSortEmployees()
+            }
+        })
+
+        // Setup sort by dropdown
+        val sortByOptions = listOf("Name", "Role", "Hire Date", "Salary")
+        val sortByAdapter = ArrayAdapter(requireContext(), android.R.layout.simple_dropdown_item_1line, sortByOptions)
+        binding.actvSortBy.setAdapter(sortByAdapter)
+        binding.actvSortBy.setText("Name", false)
+
+        binding.actvSortBy.setOnItemClickListener { _, _, position, _ ->
+            sortBy = when (position) {
+                0 -> "name"
+                1 -> "role"
+                2 -> "hireDate"
+                3 -> "salary"
+                else -> "name"
+            }
+            filterAndSortEmployees()
+        }
+
+        // Setup sort order dropdown
+        val sortOrderOptions = listOf("Ascending", "Descending")
+        val sortOrderAdapter = ArrayAdapter(requireContext(), android.R.layout.simple_dropdown_item_1line, sortOrderOptions)
+        binding.actvSortOrder.setAdapter(sortOrderAdapter)
+        binding.actvSortOrder.setText("Ascending", false)
+
+        binding.actvSortOrder.setOnItemClickListener { _, _, position, _ ->
+            sortOrder = if (position == 0) "asc" else "desc"
+            filterAndSortEmployees()
+        }
+    }
+
+    private fun filterAndSortEmployees() {
+        // Filter employees based on search query
+        filteredEmployees.clear()
+        
+        employees.forEach { employee ->
+            val matchesSearch = searchQuery.isEmpty() || 
+                employee.name.contains(searchQuery, ignoreCase = true) ||
+                employee.email.contains(searchQuery, ignoreCase = true) ||
+                employee.role.contains(searchQuery, ignoreCase = true) ||
+                employee.phone.contains(searchQuery, ignoreCase = true)
+            
+            if (matchesSearch) {
+                filteredEmployees.add(employee)
+            }
+        }
+
+        // Sort filtered employees
+        filteredEmployees.sortWith { employee1, employee2 ->
+            val comparison = when (sortBy) {
+                "name" -> employee1.name.compareTo(employee2.name, ignoreCase = true)
+                "role" -> employee1.role.compareTo(employee2.role, ignoreCase = true)
+                "hireDate" -> {
+                    val date1 = employee1.hireDate?.toDate() ?: Date(0)
+                    val date2 = employee2.hireDate?.toDate() ?: Date(0)
+                    date1.compareTo(date2)
+                }
+                "salary" -> employee1.salary.compareTo(employee2.salary)
+                else -> employee1.name.compareTo(employee2.name, ignoreCase = true)
+            }
+            
+            if (sortOrder == "desc") -comparison else comparison
+        }
+
+        updateStats()
+        employeeAdapter.notifyDataSetChanged()
     }
 
     private fun showAccountCreationOptions() {
@@ -159,16 +247,15 @@ class EmployeesFragment : Fragment() {
                     }
                 }
 
-                updateStats()
-                employeeAdapter.notifyDataSetChanged()
+                filterAndSortEmployees()
             }
     }
 
     private fun updateStats() {
-        val total = employees.size
-        val coaches = employees.count { it.role == "coach" }
-        val headCoaches = employees.count { it.role == "head_coach" }
-        val admins = employees.count { it.role == "admin" }
+        val total = filteredEmployees.size
+        val coaches = filteredEmployees.count { it.role == "coach" }
+        val headCoaches = filteredEmployees.count { it.role == "head_coach" }
+        val admins = filteredEmployees.count { it.role == "admin" }
         
         binding.tvTotalCount.text = total.toString()
         binding.tvCoachesCount.text = coaches.toString()
