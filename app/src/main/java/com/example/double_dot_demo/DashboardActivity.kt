@@ -26,6 +26,7 @@ class DashboardActivity : AppCompatActivity(), NavigationView.OnNavigationItemSe
     private lateinit var toolbar: MaterialToolbar
     private lateinit var drawerLayout: DrawerLayout
     private lateinit var navigationView: NavigationView
+    private var currentUserRole: String = ""
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -44,7 +45,7 @@ class DashboardActivity : AppCompatActivity(), NavigationView.OnNavigationItemSe
             return
         }
         
-        val userRole = intent.getStringExtra("user_role") ?: "unknown"
+        currentUserRole = intent.getStringExtra("user_role") ?: "unknown"
         
         // Set up toolbar
         setupToolbar()
@@ -56,7 +57,7 @@ class DashboardActivity : AppCompatActivity(), NavigationView.OnNavigationItemSe
         setupBottomNavigation()
         
         // Load default fragment based on role
-        loadDefaultFragment(userRole)
+        loadDefaultFragment(currentUserRole)
     }
     
     private fun setupToolbar() {
@@ -79,6 +80,23 @@ class DashboardActivity : AppCompatActivity(), NavigationView.OnNavigationItemSe
         
         // Update user info in header
         updateUserInfo()
+        
+        // Set up role-based menu visibility
+        setupRoleBasedMenuVisibility()
+    }
+    
+    private fun setupRoleBasedMenuVisibility() {
+        val menu = navigationView.menu
+        
+        // Hide expenses for admin role
+        if (currentUserRole == "admin") {
+            menu.findItem(R.id.nav_expenses)?.isVisible = false
+        }
+        
+        // Hide expenses for coach role
+        if (currentUserRole == "coach") {
+            menu.findItem(R.id.nav_expenses)?.isVisible = false
+        }
     }
     
     private fun updateUserInfo() {
@@ -99,6 +117,9 @@ class DashboardActivity : AppCompatActivity(), NavigationView.OnNavigationItemSe
     private fun setupBottomNavigation() {
         bottomNavigation = findViewById(R.id.bottomNavigation)
         
+        // Set up role-based bottom navigation visibility
+        setupRoleBasedBottomNavigation()
+        
         bottomNavigation.setOnItemSelectedListener { menuItem ->
             when (menuItem.itemId) {
                 R.id.nav_calendar -> {
@@ -110,11 +131,24 @@ class DashboardActivity : AppCompatActivity(), NavigationView.OnNavigationItemSe
                     true
                 }
                 R.id.nav_employees -> {
-                    loadFragment(EmployeesFragment.newInstance())
-                    true
+                    // Only allow head coaches and admins to access employees
+                    if (currentUserRole == "head_coach" || currentUserRole == "admin") {
+                        loadFragment(EmployeesFragment.newInstance())
+                        true
+                    } else {
+                        showToast("You don't have permission to access employees")
+                        false
+                    }
                 }
                 else -> false
             }
+        }
+    }
+    
+    private fun setupRoleBasedBottomNavigation() {
+        // Hide employees tab for coaches
+        if (currentUserRole == "coach") {
+            bottomNavigation.menu.findItem(R.id.nav_employees)?.isVisible = false
         }
     }
     
@@ -123,8 +157,12 @@ class DashboardActivity : AppCompatActivity(), NavigationView.OnNavigationItemSe
         if (userRole == "head_coach") {
             bottomNavigation.selectedItemId = R.id.nav_calendar
             loadFragment(CalendarFragment.newInstance())
+        } else if (userRole == "coach") {
+            // Coaches start with trainees
+            bottomNavigation.selectedItemId = R.id.nav_trainees
+            loadFragment(TraineesFragment.newInstance())
         } else {
-            // For other roles, you can customize this
+            // For other roles, start with calendar
             bottomNavigation.selectedItemId = R.id.nav_calendar
             loadFragment(CalendarFragment.newInstance())
         }
@@ -166,8 +204,13 @@ class DashboardActivity : AppCompatActivity(), NavigationView.OnNavigationItemSe
                 showToast("Settings clicked")
             }
             R.id.nav_expenses -> {
-                // TODO: Navigate to expenses fragment/activity
-                showToast("Expenses clicked")
+                // Check role-based access for expenses
+                if (currentUserRole == "head_coach") {
+                    // TODO: Navigate to expenses fragment/activity
+                    showToast("Expenses clicked")
+                } else {
+                    showToast("You don't have permission to access expenses")
+                }
             }
             R.id.nav_sign_out -> {
                 signOut()

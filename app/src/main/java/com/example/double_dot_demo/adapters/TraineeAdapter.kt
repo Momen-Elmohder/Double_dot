@@ -15,7 +15,8 @@ class TraineeAdapter(
     private val trainees: List<Trainee>,
     private val onEditClick: (Trainee) -> Unit,
     private val onDeleteClick: (Trainee) -> Unit,
-    private val onTogglePayment: (Trainee) -> Unit
+    private val onTogglePayment: (Trainee) -> Unit,
+    private val isCoachView: Boolean = false
 ) : RecyclerView.Adapter<TraineeAdapter.TraineeViewHolder>() {
 
     private val dateFormat = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
@@ -41,36 +42,48 @@ class TraineeAdapter(
         val trainee = trainees[position]
         
         holder.tvName.text = trainee.name
-        holder.tvDetails.text = buildDetailsText(trainee)
-        holder.tvStatus.text = trainee.status.replaceFirstChar { it.uppercase() }
-        holder.tvPaymentStatus.text = if (trainee.isPaid) "Paid" else "Unpaid"
         
-        // Set status color
-        val statusColor = if (trainee.status == "active") {
-            holder.itemView.context.getColor(R.color.success_light)
+        if (isCoachView) {
+            // Coach view - only show name and age
+            holder.tvDetails.text = "Age: ${trainee.age}"
+            holder.tvStatus.visibility = View.GONE
+            holder.tvPaymentStatus.visibility = View.GONE
+            holder.btnEdit.visibility = View.GONE
+            holder.btnDelete.visibility = View.GONE
+            holder.btnTogglePayment.visibility = View.GONE
         } else {
-            holder.itemView.context.getColor(R.color.error_light)
-        }
-        holder.tvStatus.setTextColor(statusColor)
-        
-        // Set payment status color
-        val paymentColor = if (trainee.isPaid) {
-            holder.itemView.context.getColor(R.color.success_light)
-        } else {
-            holder.itemView.context.getColor(R.color.error_light)
-        }
-        holder.tvPaymentStatus.setTextColor(paymentColor)
+            // Full view for head coaches and admins
+            holder.tvDetails.text = buildDetailsText(trainee)
+            holder.tvStatus.text = trainee.status.replaceFirstChar { it.uppercase() }
+            holder.tvPaymentStatus.text = if (trainee.isPaid) "Paid" else "Unpaid"
+            
+            // Set status color
+            val statusColor = if (trainee.status == "active") {
+                holder.itemView.context.getColor(R.color.success_light)
+            } else {
+                holder.itemView.context.getColor(R.color.error_light)
+            }
+            holder.tvStatus.setTextColor(statusColor)
+            
+            // Set payment status color
+            val paymentColor = if (trainee.isPaid) {
+                holder.itemView.context.getColor(R.color.success_light)
+            } else {
+                holder.itemView.context.getColor(R.color.error_light)
+            }
+            holder.tvPaymentStatus.setTextColor(paymentColor)
 
-        holder.btnEdit.setOnClickListener {
-            onEditClick(trainee)
-        }
+            holder.btnEdit.setOnClickListener {
+                onEditClick(trainee)
+            }
 
-        holder.btnDelete.setOnClickListener {
-            onDeleteClick(trainee)
-        }
+            holder.btnDelete.setOnClickListener {
+                onDeleteClick(trainee)
+            }
 
-        holder.btnTogglePayment.setOnClickListener {
-            onTogglePayment(trainee)
+            holder.btnTogglePayment.setOnClickListener {
+                onTogglePayment(trainee)
+            }
         }
     }
 

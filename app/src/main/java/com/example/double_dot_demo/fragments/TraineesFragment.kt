@@ -29,6 +29,7 @@ class TraineesFragment : Fragment() {
     private val trainees = mutableListOf<Trainee>()
     private val filteredTrainees = mutableListOf<Trainee>()
     private val coaches = mutableListOf<String>()
+    private var currentUserRole: String = ""
     
     // Search and sort variables
     private var searchQuery: String = ""
@@ -48,6 +49,12 @@ class TraineesFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
 
         firestore = FirebaseFirestore.getInstance()
+        
+        // Get current user role from parent activity
+        currentUserRole = (activity as? com.example.double_dot_demo.DashboardActivity)?.let { activity ->
+            activity.intent.getStringExtra("user_role") ?: "unknown"
+        } ?: "unknown"
+        
         setupRecyclerView()
         setupAddButton()
         setupSearchAndSort()
@@ -58,9 +65,28 @@ class TraineesFragment : Fragment() {
     private fun setupRecyclerView() {
         traineeAdapter = TraineeAdapter(
             trainees = filteredTrainees,
-            onEditClick = { trainee -> showEditTraineeDialog(trainee) },
-            onDeleteClick = { trainee -> deleteTrainee(trainee) },
-            onTogglePayment = { trainee -> togglePaymentStatus(trainee) }
+            onEditClick = { trainee -> 
+                if (canEditTrainee()) {
+                    showEditTraineeDialog(trainee)
+                } else {
+                    Toast.makeText(requireContext(), "You don't have permission to edit trainees", Toast.LENGTH_SHORT).show()
+                }
+            },
+            onDeleteClick = { trainee -> 
+                if (canDeleteTrainee()) {
+                    deleteTrainee(trainee)
+                } else {
+                    Toast.makeText(requireContext(), "You don't have permission to delete trainees", Toast.LENGTH_SHORT).show()
+                }
+            },
+            onTogglePayment = { trainee -> 
+                if (canTogglePayment()) {
+                    togglePaymentStatus(trainee)
+                } else {
+                    Toast.makeText(requireContext(), "You don't have permission to modify payment status", Toast.LENGTH_SHORT).show()
+                }
+            },
+            isCoachView = currentUserRole == "coach"
         )
 
         binding.recyclerViewTrainees.apply {
@@ -71,7 +97,16 @@ class TraineesFragment : Fragment() {
 
     private fun setupAddButton() {
         binding.btnAddTrainee.setOnClickListener {
-            showAddTraineeDialog()
+            if (canAddTrainee()) {
+                showAddTraineeDialog()
+            } else {
+                Toast.makeText(requireContext(), "You don't have permission to add trainees", Toast.LENGTH_SHORT).show()
+            }
+        }
+        
+        // Hide add button for coaches
+        if (currentUserRole == "coach") {
+            binding.btnAddTrainee.visibility = View.GONE
         }
     }
 
@@ -86,8 +121,12 @@ class TraineesFragment : Fragment() {
             }
         })
 
-        // Setup sort by dropdown
-        val sortByOptions = listOf("Name", "Age", "Coach", "Starting Date", "Monthly Fee", "Payment Status")
+        // Setup sort by dropdown - limited options for coaches
+        val sortByOptions = if (currentUserRole == "coach") {
+            listOf("Name", "Age")
+        } else {
+            listOf("Name", "Age", "Coach", "Starting Date", "Monthly Fee", "Payment Status")
+        }
         val sortByAdapter = ArrayAdapter(requireContext(), android.R.layout.simple_dropdown_item_1line, sortByOptions)
         binding.actvSortBy.setAdapter(sortByAdapter)
         binding.actvSortBy.setText("Name", false)
@@ -96,10 +135,10 @@ class TraineesFragment : Fragment() {
             sortBy = when (position) {
                 0 -> "name"
                 1 -> "age"
-                2 -> "coachName"
-                3 -> "startingDate"
-                4 -> "monthlyFee"
-                5 -> "isPaid"
+                2 -> if (currentUserRole == "coach") "name" else "coachName"
+                3 -> if (currentUserRole == "coach") "name" else "startingDate"
+                4 -> if (currentUserRole == "coach") "name" else "monthlyFee"
+                5 -> if (currentUserRole == "coach") "name" else "isPaid"
                 else -> "name"
             }
             filterAndSortTrainees()
@@ -124,10 +163,10 @@ class TraineesFragment : Fragment() {
         trainees.forEach { trainee ->
             val matchesSearch = searchQuery.isEmpty() || 
                 trainee.name.contains(searchQuery, ignoreCase = true) ||
-                trainee.coachName.contains(searchQuery, ignoreCase = true) ||
-                trainee.status.contains(searchQuery, ignoreCase = true) ||
+                (currentUserRole != "coach" && trainee.coachName.contains(searchQuery, ignoreCase = true)) ||
+                (currentUserRole != "coach" && trainee.status.contains(searchQuery, ignoreCase = true)) ||
                 trainee.age.toString().contains(searchQuery) ||
-                trainee.monthlyFee.toString().contains(searchQuery)
+                (currentUserRole != "coach" && trainee.monthlyFee.toString().contains(searchQuery))
             
             if (matchesSearch) {
                 filteredTrainees.add(trainee)
@@ -139,14 +178,14 @@ class TraineesFragment : Fragment() {
             val comparison = when (sortBy) {
                 "name" -> trainee1.name.compareTo(trainee2.name, ignoreCase = true)
                 "age" -> trainee1.age.compareTo(trainee2.age)
-                "coachName" -> trainee1.coachName.compareTo(trainee2.coachName, ignoreCase = true)
-                "startingDate" -> {
+                "coachName" -> if (currentUserRole == "coach") 0 else trainee1.coachName.compareTo(trainee2.coachName, ignoreCase = true)
+                "startingDate" -> if (currentUserRole == "coach") 0 else {
                     val date1 = trainee1.startingDate?.toDate() ?: Date(0)
                     val date2 = trainee2.startingDate?.toDate() ?: Date(0)
                     date1.compareTo(date2)
                 }
-                "monthlyFee" -> trainee1.monthlyFee.compareTo(trainee2.monthlyFee)
-                "isPaid" -> trainee1.isPaid.compareTo(trainee2.isPaid)
+                "monthlyFee" -> if (currentUserRole == "coach") 0 else trainee1.monthlyFee.compareTo(trainee2.monthlyFee)
+                "isPaid" -> if (currentUserRole == "coach") 0 else trainee1.isPaid.compareTo(trainee2.isPaid)
                 else -> trainee1.name.compareTo(trainee2.name, ignoreCase = true)
             }
             
@@ -155,6 +194,22 @@ class TraineesFragment : Fragment() {
 
         updateStats()
         traineeAdapter.notifyDataSetChanged()
+    }
+
+    private fun canAddTrainee(): Boolean {
+        return currentUserRole == "head_coach" || currentUserRole == "admin"
+    }
+
+    private fun canEditTrainee(): Boolean {
+        return currentUserRole == "head_coach" || currentUserRole == "admin"
+    }
+
+    private fun canDeleteTrainee(): Boolean {
+        return currentUserRole == "head_coach" || currentUserRole == "admin"
+    }
+
+    private fun canTogglePayment(): Boolean {
+        return currentUserRole == "head_coach" || currentUserRole == "admin"
     }
 
     private fun loadCoaches() {

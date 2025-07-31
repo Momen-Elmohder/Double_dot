@@ -59,11 +59,32 @@ class EmployeesFragment : Fragment() {
             activity.intent.getStringExtra("user_role") ?: "unknown"
         } ?: "unknown"
         
+        // Check if user has permission to access employees
+        if (currentUserRole == "coach") {
+            showAccessDeniedMessage()
+            return
+        }
+        
         setupRecyclerView()
         setupAddButton()
         setupRoleBasedUI()
         setupSearchAndSort()
         loadEmployees()
+    }
+
+    private fun showAccessDeniedMessage() {
+        binding.root.removeAllViews()
+        val messageView = android.widget.TextView(requireContext()).apply {
+            text = "Access Denied\n\nCoaches cannot access employee information."
+            textSize = 18f
+            gravity = android.view.Gravity.CENTER
+            setTextColor(resources.getColor(android.R.color.holo_red_dark, null))
+            layoutParams = ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+        }
+        binding.root.addView(messageView)
     }
 
     private fun setupRecyclerView() {
@@ -212,7 +233,6 @@ class EmployeesFragment : Fragment() {
     private fun canEditEmployee(employee: Employee): Boolean {
         return when (currentUserRole) {
             "head_coach" -> true // Head coaches can edit anyone
-            "coach" -> employee.role != "head_coach" // Coaches can't edit head coaches
             "admin" -> employee.role != "head_coach" && employee.role != "admin" // Admins can't edit head coaches or other admins
             else -> false
         }
@@ -221,7 +241,6 @@ class EmployeesFragment : Fragment() {
     private fun canDeleteEmployee(employee: Employee): Boolean {
         return when (currentUserRole) {
             "head_coach" -> employee.role != "head_coach" // Head coaches can't delete themselves
-            "coach" -> false // Coaches can't delete anyone
             "admin" -> employee.role == "coach" // Admins can only delete coaches
             else -> false
         }
@@ -265,10 +284,6 @@ class EmployeesFragment : Fragment() {
             "head_coach" -> {
                 binding.tvStatsTitle.text = "Staff Overview"
                 binding.tvCoachesCount.text = "${coaches + headCoaches + admins}"
-            }
-            "coach" -> {
-                binding.tvStatsTitle.text = "Team Members"
-                binding.tvCoachesCount.text = coaches.toString()
             }
             "admin" -> {
                 binding.tvStatsTitle.text = "Management"
