@@ -27,9 +27,6 @@
         <activity
             android:name=".DashboardActivity"
             android:exported="false" />
-        <activity
-            android:name=".CreateHeadCoachActivity"
-            android:exported="false" />
     </application>
 
 </manifest>
