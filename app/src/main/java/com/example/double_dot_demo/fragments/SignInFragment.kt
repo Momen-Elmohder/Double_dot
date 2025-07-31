@@ -7,6 +7,7 @@ import android.view.ViewGroup
 import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
+import com.example.double_dot_demo.MainActivity
 import com.example.double_dot_demo.R
 import com.example.double_dot_demo.databinding.FragmentSigninBinding
 import com.example.double_dot_demo.viewmodel.SignInViewModel

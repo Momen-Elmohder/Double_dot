@@ -230,8 +230,7 @@ class DashboardActivity : AppCompatActivity(), NavigationView.OnNavigationItemSe
         if (drawerLayout.isDrawerOpen(GravityCompat.START)) {
             drawerLayout.closeDrawer(GravityCompat.START)
         } else {
-            // Prevent going back to sign-in screen
-            // You can customize this behavior
+            super.onBackPressed()
         }
     }
     

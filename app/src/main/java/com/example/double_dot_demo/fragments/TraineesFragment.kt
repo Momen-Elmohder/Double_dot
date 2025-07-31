@@ -278,9 +278,9 @@ class TraineesFragment : Fragment() {
                 if (snapshot != null) {
                     for (document in snapshot) {
                         val trainee = document.toObject(Trainee::class.java)
-                        trainee?.let {
-                            it.id = document.id
-                            trainees.add(it)
+                        trainee?.let { originalTrainee ->
+                            val traineeWithId = originalTrainee.copy(id = document.id)
+                            trainees.add(traineeWithId)
                         }
                     }
                 }
@@ -320,8 +320,8 @@ class TraineesFragment : Fragment() {
 
     private fun showRenewTraineeDialog(trainee: Trainee) {
         val dialog = RenewTraineeDialog(requireContext(), trainee)
-        dialog.setOnRenewClickListener { trainee, newEndDate ->
-            renewTrainee(trainee, newEndDate)
+        dialog.setOnRenewClickListener { traineeToRenew, newEndDate ->
+            renewTrainee(traineeToRenew, newEndDate)
         }
         dialog.show()
     }

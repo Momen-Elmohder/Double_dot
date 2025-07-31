@@ -259,9 +259,9 @@ class EmployeesFragment : Fragment() {
                 if (snapshot != null) {
                     for (document in snapshot) {
                         val employee = document.toObject(Employee::class.java)
-                        employee?.let {
-                            it.id = document.id
-                            employees.add(it)
+                        employee?.let { originalEmployee ->
+                            val employeeWithId = originalEmployee.copy(id = document.id)
+                            employees.add(employeeWithId)
                         }
                     }
                 }
