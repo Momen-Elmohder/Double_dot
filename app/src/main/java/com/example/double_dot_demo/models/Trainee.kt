@@ -6,6 +6,8 @@ data class Trainee(
     val id: String = "",
     val name: String = "",
     val age: Int = 0,
+    val phoneNumber: String = "",
+    val branch: String = "",
     val startingDate: Timestamp? = null,
     val endingDate: Timestamp? = null,
     val coachId: String = "",

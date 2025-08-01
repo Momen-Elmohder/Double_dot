@@ -30,9 +30,9 @@ class CreateEmployeeAccountDialog(
     }
 
     fun show() {
-        // Only allow head coaches to create accounts
-        if (currentUserRole != "head_coach") {
-            Toast.makeText(context, "Only Head Coaches can create employee accounts", Toast.LENGTH_LONG).show()
+        // Allow head coaches and admins to create employee accounts
+        if (currentUserRole != "head_coach" && currentUserRole != "admin") {
+            Toast.makeText(context, "Only Head Coaches and Admins can create employee accounts", Toast.LENGTH_LONG).show()
             return
         }
 
@@ -62,8 +62,13 @@ class CreateEmployeeAccountDialog(
     }
 
     private fun setupRoleDropdown() {
-        // Head coaches can only create accounts for coaches and admins, not other head coaches
-        val availableRoles = listOf("Coach", "Admin")
+        // Set available roles based on current user's role
+        val availableRoles = when (currentUserRole) {
+            "head_coach" -> listOf("Coach", "Admin") // Head coaches can create coaches and admins
+            "admin" -> listOf("Coach") // Admins can only create coaches
+            else -> listOf("Coach") // Default fallback
+        }
+        
         val adapter = ArrayAdapter(context, android.R.layout.simple_dropdown_item_1line, availableRoles)
         binding.actvRole.setAdapter(adapter)
     }
@@ -128,8 +133,15 @@ class CreateEmployeeAccountDialog(
         val name = binding.etName.text.toString().trim()
         val email = binding.etEmail.text.toString().trim()
         val phone = binding.etPhone.text.toString().trim()
-        val role = binding.actvRole.text.toString().trim().lowercase().replace(" ", "_")
+        val selectedRole = binding.actvRole.text.toString().trim()
         val password = binding.etPassword.text.toString()
+
+        // Convert role to proper format
+        val role = when (selectedRole.lowercase()) {
+            "coach" -> "coach"
+            "admin" -> "admin"
+            else -> "coach" // Default to coach if something goes wrong
+        }
 
         // Show loading
         binding.btnCreateAccount.isEnabled = false
@@ -178,20 +190,43 @@ class CreateEmployeeAccountDialog(
             updatedAt = Timestamp.now()
         )
 
-        firestore.collection("employees")
+        // Create user document in "users" collection for Firebase Auth
+        val userData = hashMapOf(
+            "role" to role,
+            "email" to email,
+            "name" to name,
+            "phone" to phone,
+            "status" to "active",
+            "createdAt" to Timestamp.now(),
+            "lastLogin" to Timestamp.now()
+        )
+
+        // Create both documents
+        firestore.collection("users")
             .document(uid)
-            .set(employee)
+            .set(userData)
             .addOnSuccessListener {
-                binding.btnCreateAccount.isEnabled = true
-                binding.btnCreateAccount.text = "Create Account"
-                Toast.makeText(context, "Employee account created successfully!", Toast.LENGTH_LONG).show()
-                onAccountCreatedListener?.invoke(employee)
-                dialog.dismiss()
+                // Now create employee document
+                firestore.collection("employees")
+                    .document(uid)
+                    .set(employee)
+                    .addOnSuccessListener {
+                        binding.btnCreateAccount.isEnabled = true
+                        binding.btnCreateAccount.text = "Create Account"
+                        Toast.makeText(context, "Employee account created successfully!", Toast.LENGTH_LONG).show()
+                        onAccountCreatedListener?.invoke(employee)
+                        dialog.dismiss()
+                    }
+                    .addOnFailureListener { e ->
+                        binding.btnCreateAccount.isEnabled = true
+                        binding.btnCreateAccount.text = "Create Account"
+                        Toast.makeText(context, "Failed to save employee data: ${e.message}", Toast.LENGTH_LONG).show()
+                    }
             }
             .addOnFailureListener { e ->
                 binding.btnCreateAccount.isEnabled = true
                 binding.btnCreateAccount.text = "Create Account"
-                Toast.makeText(context, "Failed to save employee data: ${e.message}", Toast.LENGTH_LONG).show()
+                Toast.makeText(context, "Failed to create user document: ${e.message}", Toast.LENGTH_LONG).show()
             }
     }
 } 

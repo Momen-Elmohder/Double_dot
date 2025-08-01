@@ -54,10 +54,8 @@ class EmployeesFragment : Fragment() {
         firestore = FirebaseFirestore.getInstance()
         auth = FirebaseAuth.getInstance()
         
-        // Get current user role from parent activity
-        currentUserRole = (activity as? com.example.double_dot_demo.DashboardActivity)?.let { activity ->
-            activity.intent.getStringExtra("user_role") ?: "unknown"
-        } ?: "unknown"
+        // Get current user role from arguments
+        currentUserRole = arguments?.getString("user_role") ?: "unknown"
         
         // Check if user has permission to access employees
         if (currentUserRole == "coach") {
@@ -114,7 +112,7 @@ class EmployeesFragment : Fragment() {
 
     private fun setupAddButton() {
         binding.btnAddEmployee.setOnClickListener {
-            if (currentUserRole == "head_coach") {
+            if (currentUserRole == "head_coach" || currentUserRole == "admin") {
                 showAccountCreationOptions()
             } else {
                 showAddEmployeeDialog()
@@ -124,7 +122,7 @@ class EmployeesFragment : Fragment() {
 
     private fun setupRoleBasedUI() {
         // Show/hide add button based on role
-        if (currentUserRole != "head_coach") {
+        if (currentUserRole != "head_coach" && currentUserRole != "admin") {
             binding.btnAddEmployee.visibility = View.GONE
         }
     }

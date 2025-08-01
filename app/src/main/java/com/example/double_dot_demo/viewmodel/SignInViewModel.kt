@@ -40,44 +40,75 @@ class SignInViewModel : ViewModel() {
     }
     
     private fun getUserRoleFromFirestore(userId: String, defaultRole: String) {
-        firestore.collection("users")
-            .document(userId)
-            .get()
-            .addOnSuccessListener { document ->
-                if (document != null && document.exists()) {
-                    val role = document.getString("role") ?: defaultRole
-                    // Update last login time
-                    updateLastLogin(userId)
-                    _signInState.value = SignInState.Success(role)
-                } else {
-                    // User doesn't exist in Firestore, create with default role
+        try {
+            firestore.collection("users")
+                .document(userId)
+                .get()
+                .addOnSuccessListener { document ->
+                    try {
+                        if (document != null && document.exists()) {
+                            // Enhanced role reading with multiple fallbacks
+                            val allData = document.data
+                            var role = defaultRole
+                            
+                            // Try multiple ways to read the role
+                            role = document.getString("role") ?: 
+                                   document.getString("Role") ?: 
+                                   document.getString("userRole") ?: 
+                                   document.getString("user_role") ?:
+                                   allData?.get("role")?.toString() ?: defaultRole
+                            
+                            // Debug: Log all available data
+                            android.util.Log.d("SignInViewModel", "All document data: $allData")
+                            android.util.Log.d("SignInViewModel", "User role from Firestore: $role")
+                            
+                            // Update last login time
+                            updateLastLogin(userId)
+                            _signInState.value = SignInState.Success(role)
+                        } else {
+                            // User doesn't exist in Firestore, create with head_coach role for existing users
+                            android.util.Log.d("SignInViewModel", "User not found in Firestore, creating document")
+                            createUserInFirestore(userId, "head_coach") // Default to head_coach for existing users
+                        }
+                    } catch (e: Exception) {
+                        // If role reading fails, use head_coach role for existing users
+                        android.util.Log.e("SignInViewModel", "Error reading role: ${e.message}")
+                        createUserInFirestore(userId, "head_coach") // Default to head_coach for existing users
+                    }
+                }
+                .addOnFailureListener { e ->
+                    // If Firestore fails, still create user with default role
                     createUserInFirestore(userId, defaultRole)
                 }
-            }
-            .addOnFailureListener { e ->
-                // If Firestore fails, still create user with default role
-                createUserInFirestore(userId, defaultRole)
-            }
+        } catch (e: Exception) {
+            // If anything fails, use default role
+            createUserInFirestore(userId, defaultRole)
+        }
     }
     
     private fun createUserInFirestore(userId: String, role: String) {
-        val userData = hashMapOf(
-            "role" to role,
-            "email" to auth.currentUser?.email,
-            "lastLogin" to com.google.firebase.Timestamp.now(),
-            "createdAt" to com.google.firebase.Timestamp.now()
-        )
-        
-        firestore.collection("users")
-            .document(userId)
-            .set(userData)
-            .addOnSuccessListener {
-                _signInState.value = SignInState.Success(role)
-            }
-            .addOnFailureListener { e ->
-                // If creation fails, still proceed with default role
-                _signInState.value = SignInState.Success(role)
-            }
+        try {
+            val userData = hashMapOf(
+                "role" to role,
+                "email" to auth.currentUser?.email,
+                "lastLogin" to com.google.firebase.Timestamp.now(),
+                "createdAt" to com.google.firebase.Timestamp.now()
+            )
+            
+            firestore.collection("users")
+                .document(userId)
+                .set(userData)
+                .addOnSuccessListener {
+                    _signInState.value = SignInState.Success(role)
+                }
+                .addOnFailureListener { e ->
+                    // If creation fails, still proceed with default role
+                    _signInState.value = SignInState.Success(role)
+                }
+        } catch (e: Exception) {
+            // If anything fails, still proceed with default role
+            _signInState.value = SignInState.Success(role)
+        }
     }
     
     private fun updateLastLogin(userId: String) {

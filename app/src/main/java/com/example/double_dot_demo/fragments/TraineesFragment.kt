@@ -16,7 +16,7 @@ import com.example.double_dot_demo.databinding.FragmentTraineesBinding
 import com.example.double_dot_demo.dialogs.AddTraineeDialog
 import com.example.double_dot_demo.dialogs.RenewTraineeDialog
 import com.example.double_dot_demo.models.Trainee
-import com.example.double_dot_demo.utils.NotificationHelper
+
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FirebaseFirestore
 import java.text.SimpleDateFormat
@@ -28,11 +28,12 @@ class TraineesFragment : Fragment() {
     private val binding get() = _binding!!
     private lateinit var firestore: FirebaseFirestore
     private lateinit var traineeAdapter: TraineeAdapter
-    private lateinit var notificationHelper: NotificationHelper
+
     private val trainees = mutableListOf<Trainee>()
     private val filteredTrainees = mutableListOf<Trainee>()
     private val coaches = mutableListOf<String>()
     private var currentUserRole: String = ""
+    private val dateFormat = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
     
     // Search and sort variables
     private var searchQuery: String = ""
@@ -48,22 +49,118 @@ class TraineesFragment : Fragment() {
         return binding.root
     }
 
-    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        firestore = FirebaseFirestore.getInstance()
-        notificationHelper = NotificationHelper(requireContext())
-        
-        // Get current user role from parent activity
-        currentUserRole = (activity as? com.example.double_dot_demo.DashboardActivity)?.let { activity ->
-            activity.intent.getStringExtra("user_role") ?: "unknown"
-        } ?: "unknown"
-        
+        try {
+            firestore = FirebaseFirestore.getInstance()
+            
+            // Get current user role from arguments
+            currentUserRole = arguments?.getString("user_role") ?: "coach"
+            
+            // For coach accounts, use ultra-simplified setup
+            if (currentUserRole == "coach") {
+                setupSimpleCoachView()
+            } else {
+                setupFullView()
+            }
+            
+        } catch (e: Exception) {
+            android.util.Log.e("TraineesFragment", "Error in onViewCreated: ${e.message}")
+            Toast.makeText(requireContext(), "Error loading trainees: ${e.message}", Toast.LENGTH_LONG).show()
+        }
+    }
+    
+    private fun setupSimpleCoachView() {
+        try {
+            // Hide all complex UI elements for coaches
+            binding.btnAddTrainee.visibility = View.GONE
+            binding.tilSearch.visibility = View.GONE
+            binding.tilSortBy.visibility = View.GONE
+            binding.tilSortOrder.visibility = View.GONE
+            
+            // Setup simple recycler view
+            setupSimpleRecyclerView()
+            
+            // Load minimal data
+            loadSimpleTrainees()
+            
+        } catch (e: Exception) {
+            android.util.Log.e("TraineesFragment", "Error in setupSimpleCoachView: ${e.message}")
+            Toast.makeText(requireContext(), "Error setting up coach view: ${e.message}", Toast.LENGTH_LONG).show()
+        }
+    }
+    
+    private fun setupFullView() {
         setupRecyclerView()
         setupAddButton()
         setupSearchAndSort()
-        loadCoaches()
-        loadTrainees()
+        
+        // Add timeout for loading data
+        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+            try {
+                loadCoaches()
+                loadTrainees()
+            } catch (e: Exception) {
+                android.util.Log.e("TraineesFragment", "Error loading data: ${e.message}")
+                Toast.makeText(requireContext(), "Error loading data: ${e.message}", Toast.LENGTH_LONG).show()
+            }
+        }, 1000) // 1 second delay
+    }
+    
+    private fun setupSimpleRecyclerView() {
+        traineeAdapter = TraineeAdapter(
+            trainees = filteredTrainees,
+            onEditClick = { trainee -> 
+                Toast.makeText(requireContext(), "You don't have permission to edit trainees", Toast.LENGTH_SHORT).show()
+            },
+            onDeleteClick = { trainee -> 
+                Toast.makeText(requireContext(), "You don't have permission to delete trainees", Toast.LENGTH_SHORT).show()
+            },
+            onTogglePayment = { trainee -> 
+                Toast.makeText(requireContext(), "You don't have permission to modify payment status", Toast.LENGTH_SHORT).show()
+            },
+            onRenewClick = { trainee ->
+                Toast.makeText(requireContext(), "You don't have permission to renew trainees", Toast.LENGTH_SHORT).show()
+            },
+            onShowDetailsClick = { trainee ->
+                Toast.makeText(requireContext(), "You don't have permission to view details", Toast.LENGTH_SHORT).show()
+            },
+            isCoachView = true
+        )
+
+        binding.recyclerViewTrainees.apply {
+            layoutManager = LinearLayoutManager(requireContext())
+            adapter = traineeAdapter
+        }
+    }
+    
+    private fun loadSimpleTrainees() {
+        try {
+            // Load only basic trainee data for coaches
+            firestore.collection("trainees")
+                .limit(50) // Limit to prevent overload
+                .get()
+                .addOnSuccessListener { snapshot ->
+                    trainees.clear()
+                    for (document in snapshot) {
+                        val trainee = document.toObject(Trainee::class.java)
+                        trainee?.let { originalTrainee ->
+                            val traineeWithId = originalTrainee.copy(id = document.id)
+                            trainees.add(traineeWithId)
+                        }
+                    }
+                    filteredTrainees.clear()
+                    filteredTrainees.addAll(trainees)
+                    traineeAdapter.notifyDataSetChanged()
+                    updateStats()
+                }
+                .addOnFailureListener { e ->
+                    Toast.makeText(requireContext(), "Error loading trainees: ${e.message}", Toast.LENGTH_SHORT).show()
+                }
+        } catch (e: Exception) {
+            Toast.makeText(requireContext(), "Error loading trainees: ${e.message}", Toast.LENGTH_SHORT).show()
+        }
     }
 
     private fun setupRecyclerView() {
@@ -95,6 +192,13 @@ class TraineesFragment : Fragment() {
                     showRenewTraineeDialog(trainee)
                 } else {
                     Toast.makeText(requireContext(), "You don't have permission to renew trainees", Toast.LENGTH_SHORT).show()
+                }
+            },
+            onShowDetailsClick = { trainee ->
+                if (canShowDetails()) {
+                    showTraineeDetailsDialog(trainee)
+                } else {
+                    Toast.makeText(requireContext(), "You don't have permission to view details", Toast.LENGTH_SHORT).show()
                 }
             },
             isCoachView = currentUserRole == "coach"
@@ -206,25 +310,10 @@ class TraineesFragment : Fragment() {
         updateStats()
         traineeAdapter.notifyDataSetChanged()
         
-        // Check for expired trainees and show notifications
-        checkExpiredTrainees()
+        // Check for expired trainees (notifications removed)
     }
 
-    private fun checkExpiredTrainees() {
-        val expiredTrainees = trainees.filter { trainee ->
-            trainee.endingDate?.let { endDate ->
-                endDate.toDate().before(Date())
-            } ?: false
-        }
-        
-        if (expiredTrainees.isNotEmpty()) {
-            if (expiredTrainees.size == 1) {
-                notificationHelper.showExpirationNotification(expiredTrainees.first())
-            } else {
-                notificationHelper.showBulkExpirationNotification(expiredTrainees)
-            }
-        }
-    }
+
 
     private fun canAddTrainee(): Boolean {
         return currentUserRole == "head_coach" || currentUserRole == "admin"
@@ -245,48 +334,109 @@ class TraineesFragment : Fragment() {
     private fun canRenewTrainee(): Boolean {
         return currentUserRole == "head_coach" || currentUserRole == "admin"
     }
-
-    private fun loadCoaches() {
-        firestore.collection("employees")
-            .whereEqualTo("role", "coach")
-            .whereEqualTo("status", "active")
-            .get()
-            .addOnSuccessListener { documents ->
-                coaches.clear()
-                for (document in documents) {
-                    val name = document.getString("name") ?: ""
-                    if (name.isNotEmpty()) {
-                        coaches.add(name)
-                    }
-                }
-            }
-            .addOnFailureListener { e ->
-                Toast.makeText(requireContext(), "Error loading coaches: ${e.message}", Toast.LENGTH_SHORT).show()
-            }
+    
+    private fun canShowDetails(): Boolean {
+        return currentUserRole == "head_coach" || currentUserRole == "admin"
+    }
+    
+    private fun showTraineeDetailsDialog(trainee: Trainee) {
+        val message = """
+            Name: ${trainee.name}
+            Age: ${trainee.age}
+            Phone: ${trainee.phoneNumber}
+            Branch: ${trainee.branch}
+            Coach: ${trainee.coachName}
+            Monthly Fee: $${trainee.monthlyFee}
+            Payment Status: ${if (trainee.isPaid) "Paid" else "Unpaid"}
+            Status: ${trainee.status}
+            Starting Date: ${trainee.startingDate?.let { dateFormat.format(it.toDate()) } ?: "Not set"}
+            Ending Date: ${trainee.endingDate?.let { dateFormat.format(it.toDate()) } ?: "Not set"}
+        """.trimIndent()
+        
+        androidx.appcompat.app.AlertDialog.Builder(requireContext())
+            .setTitle("Trainee Details")
+            .setMessage(message)
+            .setPositiveButton("OK", null)
+            .show()
     }
 
-    private fun loadTrainees() {
-        firestore.collection("trainees")
-            .orderBy("createdAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
-            .addSnapshotListener { snapshot, e ->
-                if (e != null) {
-                    Toast.makeText(requireContext(), "Error loading trainees: ${e.message}", Toast.LENGTH_SHORT).show()
-                    return@addSnapshotListener
-                }
-
-                trainees.clear()
-                if (snapshot != null) {
-                    for (document in snapshot) {
-                        val trainee = document.toObject(Trainee::class.java)
-                        trainee?.let { originalTrainee ->
-                            val traineeWithId = originalTrainee.copy(id = document.id)
-                            trainees.add(traineeWithId)
+    private fun loadCoaches() {
+        try {
+            // For coach accounts, skip loading coaches list
+            if (currentUserRole == "coach") {
+                coaches.clear()
+                return
+            }
+            
+            firestore.collection("employees")
+                .whereEqualTo("role", "coach")
+                .whereEqualTo("status", "active")
+                .get()
+                .addOnSuccessListener { documents ->
+                    coaches.clear()
+                    for (document in documents) {
+                        val name = document.getString("name") ?: ""
+                        if (name.isNotEmpty()) {
+                            coaches.add(name)
                         }
                     }
                 }
+                .addOnFailureListener { e ->
+                    Toast.makeText(requireContext(), "Error loading coaches: ${e.message}", Toast.LENGTH_SHORT).show()
+                }
+        } catch (e: Exception) {
+            Toast.makeText(requireContext(), "Error loading coaches: ${e.message}", Toast.LENGTH_SHORT).show()
+        }
+    }
 
-                filterAndSortTrainees()
+    private fun loadTrainees() {
+        try {
+            // For coach accounts, use simple get() instead of real-time listener
+            if (currentUserRole == "coach") {
+                firestore.collection("trainees")
+                    .orderBy("createdAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
+                    .get()
+                    .addOnSuccessListener { snapshot ->
+                        trainees.clear()
+                        for (document in snapshot) {
+                            val trainee = document.toObject(Trainee::class.java)
+                            trainee?.let { originalTrainee ->
+                                val traineeWithId = originalTrainee.copy(id = document.id)
+                                trainees.add(traineeWithId)
+                            }
+                        }
+                        filterAndSortTrainees()
+                    }
+                    .addOnFailureListener { e ->
+                        Toast.makeText(requireContext(), "Error loading trainees: ${e.message}", Toast.LENGTH_SHORT).show()
+                    }
+            } else {
+                // For other roles, use real-time listener
+                firestore.collection("trainees")
+                    .orderBy("createdAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
+                    .addSnapshotListener { snapshot, e ->
+                        if (e != null) {
+                            Toast.makeText(requireContext(), "Error loading trainees: ${e.message}", Toast.LENGTH_SHORT).show()
+                            return@addSnapshotListener
+                        }
+
+                        trainees.clear()
+                        if (snapshot != null) {
+                            for (document in snapshot) {
+                                val trainee = document.toObject(Trainee::class.java)
+                                trainee?.let { originalTrainee ->
+                                    val traineeWithId = originalTrainee.copy(id = document.id)
+                                    trainees.add(traineeWithId)
+                                }
+                            }
+                        }
+
+                        filterAndSortTrainees()
+                    }
             }
+        } catch (e: Exception) {
+            Toast.makeText(requireContext(), "Error loading trainees: ${e.message}", Toast.LENGTH_SHORT).show()
+        }
     }
 
     private fun updateStats() {
@@ -330,6 +480,8 @@ class TraineesFragment : Fragment() {
         val traineeData = hashMapOf(
             "name" to trainee.name,
             "age" to trainee.age,
+            "phoneNumber" to trainee.phoneNumber,
+            "branch" to trainee.branch,
             "startingDate" to trainee.startingDate,
             "endingDate" to trainee.endingDate,
             "coachName" to trainee.coachName,
@@ -354,6 +506,8 @@ class TraineesFragment : Fragment() {
         val traineeData = hashMapOf(
             "name" to trainee.name,
             "age" to trainee.age,
+            "phoneNumber" to trainee.phoneNumber,
+            "branch" to trainee.branch,
             "startingDate" to trainee.startingDate,
             "endingDate" to trainee.endingDate,
             "coachName" to trainee.coachName,
@@ -381,8 +535,6 @@ class TraineesFragment : Fragment() {
             )
             .addOnSuccessListener {
                 Toast.makeText(requireContext(), "Trainee membership renewed successfully", Toast.LENGTH_SHORT).show()
-                // Cancel the notification for this trainee
-                notificationHelper.cancelNotification(trainee.id)
             }
             .addOnFailureListener { e ->
                 Toast.makeText(requireContext(), "Error renewing trainee: ${e.message}", Toast.LENGTH_SHORT).show()

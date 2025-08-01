@@ -9,9 +9,9 @@
               <option name="connection">
                 <ConnectionSetting>
                   <option name="appId" value="com.example.double_dot_demo" />
-                  <option name="mobileSdkAppId" value="YOUR_APP_ID" />
-                  <option name="projectId" value="double-dot-squash-academy" />
-                  <option name="projectNumber" value="YOUR_PROJECT_NUMBER" />
+                  <option name="mobileSdkAppId" value="1:675262611275:android:ca2c732af068f0382872ce" />
+                  <option name="projectId" value="doubledot-2487c" />
+                  <option name="projectNumber" value="675262611275" />
                 </ConnectionSetting>
               </option>
               <option name="signal" value="SIGNAL_UNSPECIFIED" />

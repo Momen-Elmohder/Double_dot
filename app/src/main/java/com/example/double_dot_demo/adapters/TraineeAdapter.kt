@@ -17,6 +17,7 @@ class TraineeAdapter(
     private val onDeleteClick: (Trainee) -> Unit,
     private val onTogglePayment: (Trainee) -> Unit,
     private val onRenewClick: (Trainee) -> Unit,
+    private val onShowDetailsClick: (Trainee) -> Unit,
     private val isCoachView: Boolean = false
 ) : RecyclerView.Adapter<TraineeAdapter.TraineeViewHolder>() {
 
@@ -31,12 +32,15 @@ class TraineeAdapter(
         val btnEdit: ImageView = itemView.findViewById(R.id.btnEdit)
         val btnDelete: ImageView = itemView.findViewById(R.id.btnDelete)
         val btnTogglePayment: ImageView = itemView.findViewById(R.id.btnTogglePayment)
+        val btnShowDetails: ImageView = itemView.findViewById(R.id.btnShowDetails)
         val btnRenew: ImageView = itemView.findViewById(R.id.btnRenew)
         val cardBackground: View = itemView.findViewById(R.id.cardBackground)
         
         // Expanded details views
         val expandedDetails: View = itemView.findViewById(R.id.expandedDetails)
         val tvExpandedAge: TextView = itemView.findViewById(R.id.tvExpandedAge)
+        val tvExpandedPhone: TextView = itemView.findViewById(R.id.tvExpandedPhone)
+        val tvExpandedBranch: TextView = itemView.findViewById(R.id.tvExpandedBranch)
         val tvExpandedCoach: TextView = itemView.findViewById(R.id.tvExpandedCoach)
         val tvExpandedFee: TextView = itemView.findViewById(R.id.tvExpandedFee)
         val tvExpandedStartDate: TextView = itemView.findViewById(R.id.tvExpandedStartDate)
@@ -67,6 +71,7 @@ class TraineeAdapter(
             holder.btnDelete.visibility = View.GONE
             holder.btnTogglePayment.visibility = View.GONE
             holder.btnRenew.visibility = View.GONE
+            holder.btnShowDetails.visibility = View.GONE
             holder.expandedDetails.visibility = View.GONE
         } else {
             // Full view for head coaches and admins
@@ -98,6 +103,12 @@ class TraineeAdapter(
                 }
             } else {
                 holder.btnRenew.visibility = View.GONE
+            }
+
+            // Show details button for head coaches and admins
+            holder.btnShowDetails.visibility = View.VISIBLE
+            holder.btnShowDetails.setOnClickListener {
+                onShowDetailsClick(trainee)
             }
 
             holder.btnEdit.setOnClickListener {
@@ -132,6 +143,8 @@ class TraineeAdapter(
     private fun setupExpandedDetails(holder: TraineeViewHolder, trainee: Trainee) {
         // Populate expanded details
         holder.tvExpandedAge.text = "Age: ${trainee.age}"
+        holder.tvExpandedPhone.text = "Phone: ${trainee.phoneNumber}"
+        holder.tvExpandedBranch.text = "Branch: ${trainee.branch}"
         holder.tvExpandedCoach.text = "Coach: ${trainee.coachName}"
         holder.tvExpandedFee.text = "Monthly Fee: $${trainee.monthlyFee}"
         

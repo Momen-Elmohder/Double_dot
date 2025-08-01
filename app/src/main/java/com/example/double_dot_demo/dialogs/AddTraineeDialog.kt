@@ -96,6 +96,8 @@ class AddTraineeDialog(
         binding.tvDialogTitle.text = "Edit Trainee"
         binding.etName.setText(trainee.name)
         binding.etAge.setText(trainee.age.toString())
+        binding.etPhoneNumber.setText(trainee.phoneNumber)
+        binding.etBranch.setText(trainee.branch)
         
         trainee.startingDate?.let { 
             binding.etStartingDate.setText(dateFormat.format(it.toDate()))
@@ -113,6 +115,8 @@ class AddTraineeDialog(
     private fun validateInputs(): Boolean {
         val name = binding.etName.text.toString().trim()
         val ageText = binding.etAge.text.toString().trim()
+        val phoneNumber = binding.etPhoneNumber.text.toString().trim()
+        val branch = binding.etBranch.text.toString().trim()
         val startingDate = binding.etStartingDate.text.toString().trim()
         val coach = binding.actvCoach.text.toString().trim()
         val monthlyFeeText = binding.etMonthlyFee.text.toString().trim()
@@ -130,6 +134,16 @@ class AddTraineeDialog(
         val age = ageText.toIntOrNull()
         if (age == null || age <= 0) {
             binding.tilAge.error = "Please enter a valid age"
+            return false
+        }
+
+        if (phoneNumber.isEmpty()) {
+            binding.tilPhoneNumber.error = "Phone number is required"
+            return false
+        }
+
+        if (branch.isEmpty()) {
+            binding.tilBranch.error = "Branch is required"
             return false
         }
 
@@ -160,6 +174,8 @@ class AddTraineeDialog(
     private fun createTraineeFromInputs(): Trainee {
         val name = binding.etName.text.toString().trim()
         val age = binding.etAge.text.toString().toInt()
+        val phoneNumber = binding.etPhoneNumber.text.toString().trim()
+        val branch = binding.etBranch.text.toString().trim()
         val startingDate = parseDate(binding.etStartingDate.text.toString())
         val endingDate = if (binding.etEndingDate.text.toString().isNotEmpty()) {
             parseDate(binding.etEndingDate.text.toString())
@@ -172,6 +188,8 @@ class AddTraineeDialog(
             id = trainee?.id ?: "",
             name = name,
             age = age,
+            phoneNumber = phoneNumber,
+            branch = branch,
             startingDate = startingDate,
             endingDate = endingDate,
             coachName = coachName,
