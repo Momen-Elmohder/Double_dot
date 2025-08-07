@@ -4,91 +4,126 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:padding="24dp"
-    android:background="@color/background_light">
+    android:padding="24dp">
 
+    <!-- Title -->
     <TextView
-        android:layout_width="wrap_content"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Renew Trainee Membership"
+        android:text="Renew Trainee"
         android:textSize="20sp"
         android:textStyle="bold"
         android:textColor="?attr/colorOnSurface"
-        android:layout_marginBottom="24dp" />
+        android:gravity="center"
+        android:layout_marginBottom="16dp" />
 
-    <!-- Trainee Name -->
-    <TextView
-        android:id="@+id/tvTraineeName"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Trainee Name"
-        android:textSize="16sp"
-        android:textStyle="bold"
-        android:textColor="?attr/colorPrimary"
-        android:layout_marginBottom="8dp" />
-
-    <!-- Current End Date -->
-    <TextView
-        android:id="@+id/tvCurrentEndDate"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Current End Date"
-        android:textSize="14sp"
-        android:textColor="?attr/colorOnSurfaceVariant"
-        android:layout_marginBottom="24dp" />
-
-    <!-- New End Date Input -->
-    <com.google.android.material.textfield.TextInputLayout
-        android:id="@+id/tilNewEndDate"
+    <!-- Trainee Info -->
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginBottom="24dp"
-        android:hint="New End Date"
-        app:startIconDrawable="@drawable/ic_calendar"
+        android:orientation="vertical"
+        android:layout_marginBottom="16dp">
+
+        <TextView
+            android:id="@+id/tvTraineeName"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Trainee Name"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:textColor="?attr/colorOnSurface"
+            android:layout_marginBottom="8dp" />
+
+        <TextView
+            android:id="@+id/tvCurrentSessions"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Current sessions: 0"
+            android:textSize="14sp"
+            android:textColor="?attr/colorOnSurfaceVariant"
+            android:layout_marginBottom="4dp" />
+
+        <TextView
+            android:id="@+id/tvCurrentFee"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Current fee: $0"
+            android:textSize="14sp"
+            android:textColor="?attr/colorOnSurfaceVariant" />
+
+    </LinearLayout>
+
+    <!-- New Sessions Input -->
+    <com.google.android.material.textfield.TextInputLayout
+        android:id="@+id/tilNewSessions"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="16dp"
+        android:hint="Number of new sessions"
+        app:startIconDrawable="@drawable/ic_work"
         app:startIconTint="?attr/colorPrimary"
         app:boxStrokeColor="?attr/colorPrimary"
         app:hintTextColor="?attr/colorPrimary"
         style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
 
         <com.google.android.material.textfield.TextInputEditText
-            android:id="@+id/etNewEndDate"
+            android:id="@+id/etNewSessions"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:inputType="date"
+            android:inputType="number"
             android:maxLines="1"
-            android:textColor="?attr/colorOnSurface"
-            android:focusable="false"
-            android:clickable="true" />
+            android:textColor="?attr/colorOnSurface" />
 
     </com.google.android.material.textfield.TextInputLayout>
 
-    <!-- Action Buttons -->
+    <!-- New Fee Input -->
+    <com.google.android.material.textfield.TextInputLayout
+        android:id="@+id/tilNewFee"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="24dp"
+        android:hint="New monthly fee"
+        app:startIconDrawable="@drawable/ic_payment"
+        app:startIconTint="?attr/colorPrimary"
+        app:boxStrokeColor="?attr/colorPrimary"
+        app:hintTextColor="?attr/colorPrimary"
+        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/etNewFee"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:inputType="number"
+            android:maxLines="1"
+            android:textColor="?attr/colorOnSurface" />
+
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <!-- Buttons -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal">
 
-        <androidx.appcompat.widget.AppCompatButton
+        <Button
             android:id="@+id/btnCancel"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:layout_marginEnd="8dp"
             android:text="Cancel"
-            android:textSize="14sp"
-            android:backgroundTint="?attr/colorSurfaceVariant"
-            android:textColor="?attr/colorOnSurfaceVariant" />
+            android:textColor="?attr/colorOnSurface"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
 
-        <androidx.appcompat.widget.AppCompatButton
+        <Button
             android:id="@+id/btnRenew"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:layout_marginStart="8dp"
             android:text="Renew"
-            android:textSize="14sp"
-            android:backgroundTint="?attr/colorPrimary"
-            android:textColor="?attr/colorOnPrimary" />
+            android:textColor="?attr/colorOnPrimary"
+            android:backgroundTint="?attr/colorPrimary" />
 
     </LinearLayout>
 

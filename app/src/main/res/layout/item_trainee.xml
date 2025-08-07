@@ -3,9 +3,9 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginBottom="8dp"
-    app:cardCornerRadius="8dp"
-    app:cardElevation="2dp"
+    android:layout_marginBottom="2dp"
+    app:cardCornerRadius="4dp"
+    app:cardElevation="1dp"
     app:cardBackgroundColor="?attr/colorSurface">
 
     <LinearLayout
@@ -13,125 +13,143 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="16dp">
+        android:padding="8dp">
 
         <!-- Main Content Row -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal">
+            android:orientation="vertical">
 
             <LinearLayout
-                android:layout_width="0dp"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:orientation="vertical">
-
-                <TextView
-                    android:id="@+id/tvName"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Trainee Name"
-                    android:textSize="16sp"
-                    android:textStyle="bold"
-                    android:textColor="?attr/colorOnSurface"
-                    android:layout_marginBottom="4dp" />
-
-                <TextView
-                    android:id="@+id/tvDetails"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Age: 25 • Coach: John Doe • Fee: $150"
-                    android:textSize="14sp"
-                    android:textColor="?attr/colorOnSurfaceVariant"
-                    android:layout_marginBottom="8dp" />
+                android:orientation="horizontal">
 
                 <LinearLayout
-                    android:layout_width="match_parent"
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:orientation="horizontal">
+                    android:layout_weight="1"
+                    android:orientation="vertical">
 
                     <TextView
-                        android:id="@+id/tvStatus"
+                        android:id="@+id/tvName"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Active"
+                        android:text="Trainee Name"
                         android:textSize="12sp"
-                        android:textColor="@color/success_light"
-                        android:background="@drawable/status_background"
-                        android:padding="4dp"
-                        android:layout_marginEnd="8dp" />
+                        android:textStyle="bold"
+                        android:textColor="?attr/colorOnSurface"
+                        android:layout_marginBottom="1dp" />
 
                     <TextView
-                        android:id="@+id/tvPaymentStatus"
+                        android:id="@+id/tvDetails"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Paid"
-                        android:textSize="12sp"
-                        android:textColor="@color/success_light"
-                        android:background="@drawable/status_background"
-                        android:padding="4dp" />
+                        android:text="Age: 25 • Coach: John Doe • Fee: $150"
+                        android:textSize="10sp"
+                        android:textColor="?attr/colorOnSurfaceVariant"
+                        android:layout_marginBottom="4dp" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:id="@+id/tvStatus"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Active"
+                            android:textSize="10sp"
+                            android:textColor="@color/success_light"
+                            android:background="@drawable/status_background"
+                            android:padding="2dp"
+                            android:layout_marginEnd="4dp" />
+
+                        <TextView
+                            android:id="@+id/tvPaymentStatus"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Paid"
+                            android:textSize="10sp"
+                            android:textColor="@color/success_light"
+                            android:background="@drawable/status_background"
+                            android:padding="2dp" />
+
+                    </LinearLayout>
 
                 </LinearLayout>
 
             </LinearLayout>
 
+            <!-- Action Buttons Row -->
             <LinearLayout
-                android:layout_width="wrap_content"
+                android:id="@+id/actionButtonsContainer"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:gravity="end">
+                android:orientation="horizontal"
+                android:gravity="center"
+                android:layout_marginTop="8dp">
 
                 <ImageView
                     android:id="@+id/btnShowDetails"
                     android:layout_width="24dp"
                     android:layout_height="24dp"
                     android:src="@drawable/ic_person"
-                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:background="@android:color/white"
                     android:padding="2dp"
-                    android:layout_marginBottom="8dp"
+                    android:layout_marginEnd="4dp"
                     android:contentDescription="Show Details"
-                    android:visibility="gone" />
+                    android:visibility="visible"
+                    android:tint="@android:color/black" />
 
                 <ImageView
                     android:id="@+id/btnRenew"
                     android:layout_width="24dp"
                     android:layout_height="24dp"
-                    android:src="@drawable/ic_calendar"
-                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:src="@drawable/ic_refresh"
+                    android:background="@android:color/white"
                     android:padding="2dp"
-                    android:layout_marginBottom="8dp"
+                    android:layout_marginEnd="4dp"
                     android:contentDescription="Renew Membership"
-                    android:visibility="gone" />
+                    android:visibility="visible"
+                    android:tint="@android:color/black" />
 
                 <ImageView
-                    android:id="@+id/btnTogglePayment"
+                    android:id="@+id/btnFreeze"
                     android:layout_width="24dp"
                     android:layout_height="24dp"
-                    android:src="@drawable/ic_payment"
-                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:src="@drawable/ic_freeze"
+                    android:background="@android:color/white"
                     android:padding="2dp"
-                    android:layout_marginBottom="8dp"
-                    android:contentDescription="Toggle Payment Status" />
+                    android:layout_marginEnd="4dp"
+                    android:contentDescription="Freeze/Unfreeze Trainee"
+                    android:visibility="visible"
+                    android:tint="@android:color/black" />
 
                 <ImageView
                     android:id="@+id/btnEdit"
                     android:layout_width="24dp"
                     android:layout_height="24dp"
                     android:src="@drawable/ic_edit"
-                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:background="@android:color/white"
                     android:padding="2dp"
-                    android:layout_marginBottom="8dp"
-                    android:contentDescription="Edit Trainee" />
+                    android:layout_marginEnd="4dp"
+                    android:contentDescription="Edit Trainee"
+                    android:visibility="visible"
+                    android:tint="@android:color/black" />
 
                 <ImageView
                     android:id="@+id/btnDelete"
                     android:layout_width="24dp"
                     android:layout_height="24dp"
                     android:src="@drawable/ic_delete"
-                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:background="@android:color/white"
                     android:padding="2dp"
-                    android:contentDescription="Delete Trainee" />
+                    android:contentDescription="Delete Trainee"
+                    android:visibility="visible"
+                    android:tint="@android:color/black" />
 
             </LinearLayout>
 
@@ -144,18 +162,18 @@
             android:layout_height="wrap_content"
             android:orientation="vertical"
             android:visibility="gone"
-            android:layout_marginTop="16dp"
+            android:layout_marginTop="8dp"
             android:background="@drawable/expanded_background"
-            android:padding="12dp">
+            android:padding="8dp">
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Detailed Information"
-                android:textSize="14sp"
+                android:textSize="12sp"
                 android:textStyle="bold"
                 android:textColor="?attr/colorPrimary"
-                android:layout_marginBottom="8dp" />
+                android:layout_marginBottom="6dp" />
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -167,70 +185,70 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="Age: 25"
-                    android:textSize="12sp"
+                    android:textSize="10sp"
                     android:textColor="?attr/colorOnSurfaceVariant"
-                    android:layout_marginBottom="4dp" />
+                    android:layout_marginBottom="2dp" />
 
                 <TextView
                     android:id="@+id/tvExpandedPhone"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="Phone: +1234567890"
-                    android:textSize="12sp"
+                    android:textSize="10sp"
                     android:textColor="?attr/colorOnSurfaceVariant"
-                    android:layout_marginBottom="4dp" />
+                    android:layout_marginBottom="2dp" />
 
                 <TextView
                     android:id="@+id/tvExpandedBranch"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="Branch: Main Branch"
-                    android:textSize="12sp"
+                    android:textSize="10sp"
                     android:textColor="?attr/colorOnSurfaceVariant"
-                    android:layout_marginBottom="4dp" />
+                    android:layout_marginBottom="2dp" />
 
                 <TextView
                     android:id="@+id/tvExpandedCoach"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="Coach: John Doe"
-                    android:textSize="12sp"
+                    android:textSize="10sp"
                     android:textColor="?attr/colorOnSurfaceVariant"
-                    android:layout_marginBottom="4dp" />
+                    android:layout_marginBottom="2dp" />
 
                 <TextView
                     android:id="@+id/tvExpandedFee"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="Monthly Fee: $150"
-                    android:textSize="12sp"
+                    android:textSize="10sp"
                     android:textColor="?attr/colorOnSurfaceVariant"
-                    android:layout_marginBottom="4dp" />
+                    android:layout_marginBottom="2dp" />
 
                 <TextView
-                    android:id="@+id/tvExpandedStartDate"
+                    android:id="@+id/tvExpandedSessions"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Start Date: 01/01/2024"
-                    android:textSize="12sp"
+                    android:text="Sessions: 10/20"
+                    android:textSize="10sp"
                     android:textColor="?attr/colorOnSurfaceVariant"
-                    android:layout_marginBottom="4dp" />
+                    android:layout_marginBottom="2dp" />
 
                 <TextView
-                    android:id="@+id/tvExpandedEndDate"
+                    android:id="@+id/tvExpandedLastRenewal"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="End Date: 31/12/2024"
-                    android:textSize="12sp"
+                    android:text="Last Renewal: Never"
+                    android:textSize="10sp"
                     android:textColor="?attr/colorOnSurfaceVariant"
-                    android:layout_marginBottom="4dp" />
+                    android:layout_marginBottom="2dp" />
 
                 <TextView
                     android:id="@+id/tvExpandedCreated"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="Created: 01/01/2024"
-                    android:textSize="12sp"
+                    android:textSize="10sp"
                     android:textColor="?attr/colorOnSurfaceVariant" />
 
             </LinearLayout>

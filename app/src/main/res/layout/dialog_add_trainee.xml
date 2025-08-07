@@ -90,7 +90,7 @@
 
         </com.google.android.material.textfield.TextInputLayout>
 
-        <!-- Branch Input -->
+        <!-- Branch Selection -->
         <com.google.android.material.textfield.TextInputLayout
             android:id="@+id/tilBranch"
             android:layout_width="match_parent"
@@ -101,65 +101,59 @@
             app:startIconTint="?attr/colorPrimary"
             app:boxStrokeColor="?attr/colorPrimary"
             app:hintTextColor="?attr/colorPrimary"
-            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu">
 
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/etBranch"
+            <AutoCompleteTextView
+                android:id="@+id/actvBranch"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:inputType="text"
-                android:maxLines="1"
+                android:inputType="none"
                 android:textColor="?attr/colorOnSurface" />
 
         </com.google.android.material.textfield.TextInputLayout>
 
-        <!-- Starting Date Input -->
+        <!-- Status Selection -->
         <com.google.android.material.textfield.TextInputLayout
-            android:id="@+id/tilStartingDate"
+            android:id="@+id/tilStatus"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="16dp"
-            android:hint="Starting Date"
-            app:startIconDrawable="@drawable/ic_calendar"
+            android:hint="Status"
+            app:startIconDrawable="@drawable/ic_person"
             app:startIconTint="?attr/colorPrimary"
             app:boxStrokeColor="?attr/colorPrimary"
             app:hintTextColor="?attr/colorPrimary"
-            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu">
 
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/etStartingDate"
+            <AutoCompleteTextView
+                android:id="@+id/actvStatus"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:inputType="date"
-                android:maxLines="1"
-                android:textColor="?attr/colorOnSurface"
-                android:focusable="false"
-                android:clickable="true" />
+                android:inputType="none"
+                android:textColor="?attr/colorOnSurface" />
 
         </com.google.android.material.textfield.TextInputLayout>
 
-        <!-- Ending Date Input -->
+        <!-- Total Sessions Input -->
         <com.google.android.material.textfield.TextInputLayout
-            android:id="@+id/tilEndingDate"
+            android:id="@+id/tilTotalSessions"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="16dp"
-            android:hint="Ending Date (Optional)"
-            app:startIconDrawable="@drawable/ic_calendar"
+            android:hint="Total Sessions"
+            app:startIconDrawable="@drawable/ic_work"
             app:startIconTint="?attr/colorPrimary"
             app:boxStrokeColor="?attr/colorPrimary"
             app:hintTextColor="?attr/colorPrimary"
             style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
 
             <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/etEndingDate"
+                android:id="@+id/etTotalSessions"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:inputType="date"
+                android:inputType="number"
                 android:maxLines="1"
-                android:textColor="?attr/colorOnSurface"
-                android:focusable="false"
-                android:clickable="true" />
+                android:textColor="?attr/colorOnSurface" />
 
         </com.google.android.material.textfield.TextInputLayout>
 
@@ -190,7 +184,7 @@
             android:id="@+id/tilMonthlyFee"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp"
+            android:layout_marginBottom="24dp"
             android:hint="Monthly Fee"
             app:startIconDrawable="@drawable/ic_person"
             app:startIconTint="?attr/colorPrimary"
@@ -207,31 +201,6 @@
                 android:textColor="?attr/colorOnSurface" />
 
         </com.google.android.material.textfield.TextInputLayout>
-
-        <!-- Payment Status -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:layout_marginBottom="24dp"
-            android:gravity="center_vertical">
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Payment Status:"
-                android:textSize="16sp"
-                android:textColor="?attr/colorOnSurface"
-                android:layout_marginEnd="16dp" />
-
-            <com.google.android.material.switchmaterial.SwitchMaterial
-                android:id="@+id/switchPaid"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Paid"
-                android:textColor="?attr/colorOnSurface" />
-
-        </LinearLayout>
 
         <!-- Action Buttons -->
         <LinearLayout

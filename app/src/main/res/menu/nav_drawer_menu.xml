@@ -16,6 +16,21 @@
             android:id="@+id/nav_expenses"
             android:icon="@drawable/ic_payment"
             android:title="Expenses" />
+        
+        <item
+            android:id="@+id/nav_completed"
+            android:icon="@drawable/ic_completed"
+            android:title="Completed" />
+        
+        <item
+            android:id="@+id/nav_coach_attendance"
+            android:icon="@drawable/ic_people"
+            android:title="Coach Attendance" />
+        
+        <item
+            android:id="@+id/nav_salary"
+            android:icon="@drawable/ic_payment"
+            android:title="Salary" />
     </group>
     
     <item android:title="Other">

@@ -32,7 +32,6 @@ class AddEmployeeDialog(
         binding = DialogAddEmployeeBinding.inflate(LayoutInflater.from(context))
         
         setupViews()
-        setupDatePicker()
         setupRoleDropdown()
         
         if (employee != null) {
@@ -61,11 +60,7 @@ class AddEmployeeDialog(
         }
     }
 
-    private fun setupDatePicker() {
-        binding.etHireDate.setOnClickListener {
-            showDatePicker(binding.etHireDate)
-        }
-    }
+    // Date picker setup removed - no longer needed for hire date
 
     private fun setupRoleDropdown() {
         val roles = listOf("Coach", "Admin", "Head Coach")
@@ -93,12 +88,8 @@ class AddEmployeeDialog(
         binding.etEmail.setText(employee.email)
         binding.etPhone.setText(employee.phone)
         binding.actvRole.setText(employee.role.replace("_", " ").replaceFirstChar { it.uppercase() })
-        
-        employee.hireDate?.let { 
-            binding.etHireDate.setText(dateFormat.format(it.toDate()))
-        }
-        
-        binding.etSalary.setText(employee.salary.toString())
+        binding.etBranch.setText(employee.branch)
+        binding.etTotalDays.setText(employee.totalDays.toString())
     }
 
     private fun validateInputs(): Boolean {
@@ -106,8 +97,8 @@ class AddEmployeeDialog(
         val email = binding.etEmail.text.toString().trim()
         val phone = binding.etPhone.text.toString().trim()
         val role = binding.actvRole.text.toString().trim()
-        val hireDate = binding.etHireDate.text.toString().trim()
-        val salaryText = binding.etSalary.text.toString().trim()
+        val branch = binding.etBranch.text.toString().trim()
+        val totalDaysText = binding.etTotalDays.text.toString().trim()
 
         if (name.isEmpty()) {
             binding.tilName.error = "Name is required"
@@ -134,19 +125,19 @@ class AddEmployeeDialog(
             return false
         }
 
-        if (hireDate.isEmpty()) {
-            binding.tilHireDate.error = "Hire date is required"
+        if (branch.isEmpty()) {
+            binding.tilBranch.error = "Branch is required"
             return false
         }
 
-        if (salaryText.isEmpty()) {
-            binding.tilSalary.error = "Salary is required"
+        if (totalDaysText.isEmpty()) {
+            binding.tilTotalDays.error = "Total days is required"
             return false
         }
 
-        val salary = salaryText.toIntOrNull()
-        if (salary == null || salary < 0) {
-            binding.tilSalary.error = "Please enter a valid salary"
+        val totalDays = totalDaysText.toIntOrNull()
+        if (totalDays == null || totalDays < 0) {
+            binding.tilTotalDays.error = "Please enter a valid number of days"
             return false
         }
 
@@ -158,8 +149,8 @@ class AddEmployeeDialog(
         val email = binding.etEmail.text.toString().trim()
         val phone = binding.etPhone.text.toString().trim()
         val role = binding.actvRole.text.toString().trim().lowercase().replace(" ", "_")
-        val hireDate = parseDate(binding.etHireDate.text.toString())
-        val salary = binding.etSalary.text.toString().toInt()
+        val branch = binding.etBranch.text.toString().trim()
+        val totalDays = binding.etTotalDays.text.toString().toInt()
 
         return Employee(
             id = employee?.id ?: "",
@@ -167,8 +158,9 @@ class AddEmployeeDialog(
             email = email,
             role = role,
             phone = phone,
-            hireDate = hireDate,
-            salary = salary,
+            branch = branch,
+            totalDays = totalDays,
+            remainingDays = totalDays,
             status = "active"
         )
     }

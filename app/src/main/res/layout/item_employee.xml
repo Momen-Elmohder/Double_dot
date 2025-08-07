@@ -45,18 +45,7 @@
                 android:layout_height="wrap_content"
                 android:text="Role: Coach • Email: john@example.com • Phone: +1234567890"
                 android:textSize="14sp"
-                android:textColor="?attr/colorOnSurfaceVariant"
-                android:layout_marginBottom="8dp" />
-
-            <TextView
-                android:id="@+id/tvStatus"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Active"
-                android:textSize="12sp"
-                android:textColor="@color/success_light"
-                android:background="@drawable/status_background"
-                android:padding="4dp" />
+                android:textColor="?attr/colorOnSurfaceVariant" />
 
         </LinearLayout>
 

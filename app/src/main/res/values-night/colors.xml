@@ -3,4 +3,20 @@
     <!-- Basic colors -->
     <color name="white">#FFFFFF</color>
     <color name="black">#000000</color>
+    
+    <!-- Dark Mode Colors - Black and White Theme -->
+    <color name="primary_light">#FFFFFF</color>
+    <color name="secondary_light">#CCCCCC</color>
+    <color name="accent_light">#999999</color>
+    <color name="background_light">#000000</color>
+    <color name="surface_light">#121212</color>
+    <color name="surface_variant_light">#1E1E1E</color>
+    <color name="card_background_light">#121212</color>
+    <color name="text_primary_light">#FFFFFF</color>
+    <color name="text_secondary_light">#CCCCCC</color>
+    <color name="on_surface_light">#FFFFFF</color>
+    <color name="divider_light">#333333</color>
+    <color name="shadow_light">#000000</color>
+    <color name="success_light">#FFFFFF</color>
+    <color name="error_light">#FFFFFF</color>
 </resources> 

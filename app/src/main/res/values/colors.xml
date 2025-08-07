@@ -10,35 +10,37 @@
     <color name="secondary_text">@color/text_secondary_light</color>
     <color name="background_gradient">@color/background_light</color>
     
-    <!-- Light Mode Colors -->
-    <color name="primary_light">#1976D2</color>
-    <color name="secondary_light">#FFC107</color>
-    <color name="accent_light">#FF5722</color>
-    <color name="background_light">#FAFAFA</color>
+    <!-- Light Mode Colors - Black and White Theme -->
+    <color name="primary_light">#000000</color>
+    <color name="secondary_light">#333333</color>
+    <color name="accent_light">#666666</color>
+    <color name="background_light">#FFFFFF</color>
     <color name="surface_light">#FFFFFF</color>
     <color name="surface_variant_light">#F5F5F5</color>
     <color name="card_background_light">#FFFFFF</color>
-    <color name="text_primary_light">#212121</color>
-    <color name="text_secondary_light">#757575</color>
-    <color name="on_surface_light">#212121</color>
+    <color name="text_primary_light">#000000</color>
+    <color name="text_secondary_light">#666666</color>
+    <color name="on_surface_light">#000000</color>
     <color name="divider_light">#E0E0E0</color>
     <color name="shadow_light">#000000</color>
     <color name="success_light">#4CAF50</color>
     <color name="error_light">#F44336</color>
+    <color name="warning_light">#FF9800</color>
     
-    <!-- Dark Mode Colors -->
-    <color name="primary_dark">#90CAF9</color>
-    <color name="secondary_dark">#FFD54F</color>
-    <color name="accent_dark">#FF8A65</color>
-    <color name="background_dark">#121212</color>
-    <color name="surface_dark">#1E1E1E</color>
-    <color name="surface_variant_dark">#2D2D2D</color>
-    <color name="card_background_dark">#1E1E1E</color>
+    <!-- Dark Mode Colors - Black and White Theme -->
+    <color name="primary_dark">#FFFFFF</color>
+    <color name="secondary_dark">#CCCCCC</color>
+    <color name="accent_dark">#999999</color>
+    <color name="background_dark">#000000</color>
+    <color name="surface_dark">#121212</color>
+    <color name="surface_variant_dark">#1E1E1E</color>
+    <color name="card_background_dark">#121212</color>
     <color name="text_primary_dark">#FFFFFF</color>
-    <color name="text_secondary_dark">#B3FFFFFF</color>
+    <color name="text_secondary_dark">#CCCCCC</color>
     <color name="on_surface_dark">#FFFFFF</color>
-    <color name="divider_dark">#424242</color>
+    <color name="divider_dark">#333333</color>
     <color name="shadow_dark">#000000</color>
-    <color name="success_dark">#81C784</color>
-    <color name="error_dark">#E57373</color>
+    <color name="success_dark">#4CAF50</color>
+    <color name="error_dark">#F44336</color>
+    <color name="warning_dark">#FF9800</color>
 </resources>

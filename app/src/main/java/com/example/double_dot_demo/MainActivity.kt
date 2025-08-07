@@ -7,7 +7,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.fragment.app.Fragment
 import com.example.double_dot_demo.databinding.ActivityMainBinding
-import com.example.double_dot_demo.fragments.CalendarFragment
+import com.example.double_dot_demo.fragments.AttendanceFragment
 import com.example.double_dot_demo.fragments.EmployeesFragment
 import com.example.double_dot_demo.fragments.SignInFragment
 import com.example.double_dot_demo.fragments.TraineesFragment
@@ -25,10 +25,7 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         
         // Set up global exception handler
-        Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
-            android.util.Log.e("MainActivity", "Uncaught exception in thread ${thread.name}: ${throwable.message}")
-            Toast.makeText(this, "App error occurred. Please restart.", Toast.LENGTH_LONG).show()
-        }
+        setupGlobalExceptionHandler()
         
         try {
             // Force the app to follow system night mode
@@ -57,17 +54,21 @@ class MainActivity : AppCompatActivity() {
             
             bottomNavigation.setOnItemSelectedListener { menuItem ->
                 try {
-                    when (menuItem.itemId) {
-                        R.id.nav_calendar -> {
-                            loadFragment(CalendarFragment.newInstance())
-                            true
-                        }
+                                    when (menuItem.itemId) {
+                    R.id.nav_calendar -> {
+                        loadFragment(AttendanceFragment())
+                        true
+                    }
                         R.id.nav_trainees -> {
-                            loadFragment(TraineesFragment.newInstance())
+                            loadFragment(TraineesFragment().apply {
+                                arguments = Bundle().apply {
+                                    putString("user_role", "coach") // Default role for MainActivity
+                                }
+                            })
                             true
                         }
                         R.id.nav_employees -> {
-                            loadFragment(EmployeesFragment.newInstance())
+                            loadFragment(EmployeesFragment())
                             true
                         }
                         else -> false
@@ -92,7 +93,7 @@ class MainActivity : AppCompatActivity() {
             getUserRoleAndNavigate(currentUser.uid)
         } else {
             // Show sign-in fragment
-            loadFragment(SignInFragment.newInstance())
+            loadFragment(SignInFragment())
             hideBottomNavigation()
         }
     }
@@ -197,5 +198,26 @@ class MainActivity : AppCompatActivity() {
     
     private fun showBottomNavigation() {
         bottomNavigation.visibility = android.view.View.VISIBLE
+    }
+
+    private fun setupGlobalExceptionHandler() {
+        val defaultHandler = Thread.getDefaultUncaughtExceptionHandler()
+        
+        Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
+            android.util.Log.e("MainActivity", "Uncaught exception in thread ${thread.name}: ${throwable.message}")
+            throwable.printStackTrace()
+            
+            // Show user-friendly error message
+            runOnUiThread {
+                android.widget.Toast.makeText(
+                    this@MainActivity,
+                    "App error occurred. Please restart.",
+                    android.widget.Toast.LENGTH_LONG
+                ).show()
+            }
+            
+            // Call the default handler
+            defaultHandler?.uncaughtException(thread, throwable)
+        }
     }
 }

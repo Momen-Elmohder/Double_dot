@@ -3,18 +3,21 @@ package com.example.double_dot_demo.models
 import com.google.firebase.Timestamp
 
 data class Trainee(
-    val id: String = "",
+    var id: String = "",
     val name: String = "",
     val age: Int = 0,
     val phoneNumber: String = "",
     val branch: String = "",
-    val startingDate: Timestamp? = null,
-    val endingDate: Timestamp? = null,
-    val coachId: String = "",
+    var coachId: String = "",
     val coachName: String = "",
     val monthlyFee: Int = 0,
+    val paymentAmount: Double = 0.0,
     val isPaid: Boolean = false,
-    val status: String = "active", // active, inactive, completed
-    val createdAt: Timestamp = Timestamp.now(),
+    val status: String = "active", // active, inactive, frozen, completed
+    val totalSessions: Int = 0,
+    val remainingSessions: Int = 0,
+    var attendanceSessions: Map<String, Boolean> = mapOf(), // sessionId -> isPresent
+    val lastRenewalDate: Timestamp? = null,
+    var createdAt: Timestamp = Timestamp.now(),
     val updatedAt: Timestamp = Timestamp.now()
 ) 

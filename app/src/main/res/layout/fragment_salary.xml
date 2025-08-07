@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <!-- Header -->
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Coach Salary System"
+        android:textSize="24sp"
+        android:textStyle="bold"
+        android:textColor="@color/black"
+        android:gravity="center"
+        android:layout_marginBottom="16dp" />
+
+    <!-- Instructions -->
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Salary calculation based on:\n• 40% of trainee payments\n• Attendance-based deductions"
+        android:textSize="14sp"
+        android:textColor="@color/text_secondary_light"
+        android:gravity="center"
+        android:layout_marginBottom="16dp" />
+
+    <!-- RecyclerView -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/recyclerView"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1" />
+
+    <!-- No Coaches Message -->
+    <TextView
+        android:id="@+id/tvNoCoaches"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="No coaches found"
+        android:textSize="16sp"
+        android:textColor="@color/text_secondary_light"
+        android:gravity="center"
+        android:visibility="gone" />
+
+</LinearLayout> 

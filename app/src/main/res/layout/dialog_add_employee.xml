@@ -112,46 +112,44 @@
 
         </com.google.android.material.textfield.TextInputLayout>
 
-        <!-- Hire Date Input -->
+        <!-- Branch Input -->
         <com.google.android.material.textfield.TextInputLayout
-            android:id="@+id/tilHireDate"
+            android:id="@+id/tilBranch"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="16dp"
-            android:hint="Hire Date"
-            app:startIconDrawable="@drawable/ic_calendar"
+            android:hint="Branch"
+            app:startIconDrawable="@drawable/ic_work"
             app:startIconTint="?attr/colorPrimary"
             app:boxStrokeColor="?attr/colorPrimary"
             app:hintTextColor="?attr/colorPrimary"
             style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
 
             <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/etHireDate"
+                android:id="@+id/etBranch"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:inputType="date"
+                android:inputType="text"
                 android:maxLines="1"
-                android:textColor="?attr/colorOnSurface"
-                android:focusable="false"
-                android:clickable="true" />
+                android:textColor="?attr/colorOnSurface" />
 
         </com.google.android.material.textfield.TextInputLayout>
 
-        <!-- Salary Input -->
+        <!-- Total Days Input -->
         <com.google.android.material.textfield.TextInputLayout
-            android:id="@+id/tilSalary"
+            android:id="@+id/tilTotalDays"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="24dp"
-            android:hint="Monthly Salary"
-            app:startIconDrawable="@drawable/ic_person"
+            android:layout_marginBottom="16dp"
+            android:hint="Total Days"
+            app:startIconDrawable="@drawable/ic_work"
             app:startIconTint="?attr/colorPrimary"
             app:boxStrokeColor="?attr/colorPrimary"
             app:hintTextColor="?attr/colorPrimary"
             style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
 
             <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/etSalary"
+                android:id="@+id/etTotalDays"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:inputType="number"
@@ -159,6 +157,8 @@
                 android:textColor="?attr/colorOnSurface" />
 
         </com.google.android.material.textfield.TextInputLayout>
+
+
 
         <!-- Action Buttons -->
         <LinearLayout

@@ -20,6 +20,7 @@ import com.example.double_dot_demo.models.Employee
 import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.ListenerRegistration
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -38,6 +39,9 @@ class EmployeesFragment : Fragment() {
     private var searchQuery: String = ""
     private var sortBy: String = "name"
     private var sortOrder: String = "asc"
+    
+    // Listener registration for proper cleanup
+    private var employeesListener: ListenerRegistration? = null
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -51,23 +55,31 @@ class EmployeesFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        firestore = FirebaseFirestore.getInstance()
-        auth = FirebaseAuth.getInstance()
-        
-        // Get current user role from arguments
-        currentUserRole = arguments?.getString("user_role") ?: "unknown"
-        
-        // Check if user has permission to access employees
-        if (currentUserRole == "coach") {
-            showAccessDeniedMessage()
-            return
+        try {
+            firestore = FirebaseFirestore.getInstance()
+            auth = FirebaseAuth.getInstance()
+            
+            // Get current user role from arguments
+            currentUserRole = arguments?.getString("user_role") ?: "unknown"
+            android.util.Log.d("EmployeesFragment", "Current user role: $currentUserRole")
+            
+            // Check if user has permission to access employees
+            if (currentUserRole == "coach") {
+                showAccessDeniedMessage()
+                return
+            }
+            
+            setupRecyclerView()
+            setupAddButton()
+            setupRoleBasedUI()
+            setupSearchAndSort()
+            loadEmployees()
+        } catch (e: Exception) {
+            android.util.Log.e("EmployeesFragment", "Error in onViewCreated: ${e.message}")
+            if (isAdded) {
+                Toast.makeText(requireContext(), "Error loading employees: ${e.message}", Toast.LENGTH_LONG).show()
+            }
         }
-        
-        setupRecyclerView()
-        setupAddButton()
-        setupRoleBasedUI()
-        setupSearchAndSort()
-        loadEmployees()
     }
 
     private fun showAccessDeniedMessage() {
@@ -92,14 +104,18 @@ class EmployeesFragment : Fragment() {
                 if (canEditEmployee(employee)) {
                     showEditEmployeeDialog(employee)
                 } else {
-                    Toast.makeText(requireContext(), "You don't have permission to edit this employee", Toast.LENGTH_SHORT).show()
+                    if (isAdded) {
+                        Toast.makeText(requireContext(), "You don't have permission to edit this employee", Toast.LENGTH_SHORT).show()
+                    }
                 }
             },
             onDeleteClick = { employee -> 
                 if (canDeleteEmployee(employee)) {
                     deleteEmployee(employee)
                 } else {
-                    Toast.makeText(requireContext(), "You don't have permission to delete this employee", Toast.LENGTH_SHORT).show()
+                    if (isAdded) {
+                        Toast.makeText(requireContext(), "You don't have permission to delete this employee", Toast.LENGTH_SHORT).show()
+                    }
                 }
             }
         )
@@ -112,17 +128,13 @@ class EmployeesFragment : Fragment() {
 
     private fun setupAddButton() {
         binding.btnAddEmployee.setOnClickListener {
-            if (currentUserRole == "head_coach" || currentUserRole == "admin") {
-                showAccountCreationOptions()
-            } else {
-                showAddEmployeeDialog()
-            }
+            showCreateAccountDialog()
         }
     }
 
     private fun setupRoleBasedUI() {
-        // Show/hide add button based on role
-        if (currentUserRole != "head_coach" && currentUserRole != "admin") {
+        // Hide add button for coaches
+        if (currentUserRole == "coach") {
             binding.btnAddEmployee.visibility = View.GONE
         }
     }
@@ -139,7 +151,7 @@ class EmployeesFragment : Fragment() {
         })
 
         // Setup sort by dropdown
-        val sortByOptions = listOf("Name", "Role", "Hire Date", "Salary")
+        val sortByOptions = listOf("Name", "Role", "Total Days", "Status")
         val sortByAdapter = ArrayAdapter(requireContext(), android.R.layout.simple_dropdown_item_1line, sortByOptions)
         binding.actvSortBy.setAdapter(sortByAdapter)
         binding.actvSortBy.setText("Name", false)
@@ -148,8 +160,8 @@ class EmployeesFragment : Fragment() {
             sortBy = when (position) {
                 0 -> "name"
                 1 -> "role"
-                2 -> "hireDate"
-                3 -> "salary"
+                2 -> "totalDays"
+                3 -> "status"
                 else -> "name"
             }
             filterAndSortEmployees()
@@ -174,9 +186,9 @@ class EmployeesFragment : Fragment() {
         employees.forEach { employee ->
             val matchesSearch = searchQuery.isEmpty() || 
                 employee.name.contains(searchQuery, ignoreCase = true) ||
-                employee.email.contains(searchQuery, ignoreCase = true) ||
                 employee.role.contains(searchQuery, ignoreCase = true) ||
-                employee.phone.contains(searchQuery, ignoreCase = true)
+                employee.status.contains(searchQuery, ignoreCase = true) ||
+                employee.totalDays.toString().contains(searchQuery)
             
             if (matchesSearch) {
                 filteredEmployees.add(employee)
@@ -188,87 +200,90 @@ class EmployeesFragment : Fragment() {
             val comparison = when (sortBy) {
                 "name" -> employee1.name.compareTo(employee2.name, ignoreCase = true)
                 "role" -> employee1.role.compareTo(employee2.role, ignoreCase = true)
-                "hireDate" -> {
-                    val date1 = employee1.hireDate?.toDate() ?: Date(0)
-                    val date2 = employee2.hireDate?.toDate() ?: Date(0)
-                    date1.compareTo(date2)
-                }
-                "salary" -> employee1.salary.compareTo(employee2.salary)
+                "totalDays" -> employee1.totalDays.compareTo(employee2.totalDays)
+                "status" -> employee1.status.compareTo(employee2.status, ignoreCase = true)
                 else -> employee1.name.compareTo(employee2.name, ignoreCase = true)
             }
             
             if (sortOrder == "desc") -comparison else comparison
         }
 
-        updateStats()
-        employeeAdapter.notifyDataSetChanged()
+        if (isAdded) {
+            updateStats()
+            employeeAdapter.notifyDataSetChanged()
+        }
     }
 
-    private fun showAccountCreationOptions() {
-        val options = arrayOf("Create Account", "Add Employee (No Account)")
-        
-        androidx.appcompat.app.AlertDialog.Builder(requireContext())
-            .setTitle("Add Employee")
-            .setItems(options) { _, which ->
-                when (which) {
-                    0 -> showCreateAccountDialog()
-                    1 -> showAddEmployeeDialog()
-                }
-            }
-            .setNegativeButton("Cancel", null)
-            .show()
-    }
+    // Removed showAccountCreationOptions method - now directly shows create account dialog
 
     private fun showCreateAccountDialog() {
-        val dialog = CreateEmployeeAccountDialog(requireContext(), currentUserRole)
-        dialog.setOnAccountCreatedListener { employee ->
-            // Account created successfully, refresh the list
-            loadEmployees()
+        if (isAdded) {
+            val dialog = CreateEmployeeAccountDialog(requireContext(), currentUserRole)
+            dialog.setOnAccountCreatedListener { employee ->
+                // Account created successfully, refresh the list
+                loadEmployees()
+            }
+            dialog.show()
         }
-        dialog.show()
     }
 
     private fun canEditEmployee(employee: Employee): Boolean {
-        return when (currentUserRole) {
+        val canEdit = when (currentUserRole) {
             "head_coach" -> true // Head coaches can edit anyone
             "admin" -> employee.role != "head_coach" && employee.role != "admin" // Admins can't edit head coaches or other admins
             else -> false
         }
+        android.util.Log.d("EmployeesFragment", "Can edit employee ${employee.name} (role: ${employee.role}) with user role $currentUserRole: $canEdit")
+        return canEdit
     }
 
     private fun canDeleteEmployee(employee: Employee): Boolean {
-        return when (currentUserRole) {
+        val canDelete = when (currentUserRole) {
             "head_coach" -> employee.role != "head_coach" // Head coaches can't delete themselves
             "admin" -> employee.role == "coach" // Admins can only delete coaches
             else -> false
         }
+        android.util.Log.d("EmployeesFragment", "Can delete employee ${employee.name} (role: ${employee.role}) with user role $currentUserRole: $canDelete")
+        return canDelete
     }
 
     private fun loadEmployees() {
-        firestore.collection("employees")
-            .orderBy("createdAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
-            .addSnapshotListener { snapshot, e ->
-                if (e != null) {
-                    Toast.makeText(requireContext(), "Error loading employees: ${e.message}", Toast.LENGTH_SHORT).show()
-                    return@addSnapshotListener
-                }
-
-                employees.clear()
-                if (snapshot != null) {
-                    for (document in snapshot) {
-                        val employee = document.toObject(Employee::class.java)
-                        employee?.let { originalEmployee ->
-                            val employeeWithId = originalEmployee.copy(id = document.id)
-                            employees.add(employeeWithId)
+        try {
+            employeesListener = firestore.collection("employees")
+                .orderBy("createdAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
+                .addSnapshotListener { snapshot, e ->
+                    if (e != null) {
+                        if (isAdded) {
+                            Toast.makeText(requireContext(), "Error loading employees: ${e.message}", Toast.LENGTH_SHORT).show()
                         }
+                        return@addSnapshotListener
+                    }
+
+                    if (isAdded) {
+                        employees.clear()
+                        if (snapshot != null) {
+                            for (document in snapshot) {
+                                val employee = document.toObject(Employee::class.java)
+                                employee?.let { originalEmployee ->
+                                    val employeeWithId = originalEmployee.copy(id = document.id)
+                                    employees.add(employeeWithId)
+                                }
+                            }
+                        }
+
+                        filterAndSortEmployees()
                     }
                 }
-
-                filterAndSortEmployees()
+        } catch (e: Exception) {
+            if (isAdded) {
+                Toast.makeText(requireContext(), "Error loading employees: ${e.message}", Toast.LENGTH_SHORT).show()
             }
+        }
     }
 
     private fun updateStats() {
+        if (!isAdded) return
+        
         val total = filteredEmployees.size
         val coaches = filteredEmployees.count { it.role == "coach" }
         val headCoaches = filteredEmployees.count { it.role == "head_coach" }
@@ -290,53 +305,57 @@ class EmployeesFragment : Fragment() {
         }
     }
 
-    private fun showAddEmployeeDialog() {
-        val dialog = AddEmployeeDialog(requireContext())
-        dialog.setOnSaveClickListener { employee ->
-            addEmployee(employee)
-        }
-        dialog.show()
-    }
+    // Removed showAddEmployeeDialog method - no longer needed since we only allow account creation
 
     private fun showEditEmployeeDialog(employee: Employee) {
-        val dialog = AddEmployeeDialog(requireContext(), employee)
-        dialog.setOnSaveClickListener { updatedEmployee ->
-            updateEmployee(updatedEmployee)
+        if (isAdded) {
+            val dialog = AddEmployeeDialog(requireContext(), employee)
+            dialog.setOnSaveClickListener { updatedEmployee ->
+                updateEmployee(updatedEmployee)
+            }
+            dialog.show()
         }
-        dialog.show()
+    }
+    
+    private fun showEmployeeDetailsDialog(employee: Employee) {
+        if (!isAdded) return
+        
+        val dateFormat = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+        val message = """
+            Name: ${employee.name}
+            Email: ${employee.email}
+            Role: ${employee.role}
+            Phone: ${employee.phone}
+            Total Days: ${employee.totalDays}
+            Status: ${employee.status}
+        """.trimIndent()
+        
+        androidx.appcompat.app.AlertDialog.Builder(requireContext())
+            .setTitle("Employee Details")
+            .setMessage(message)
+            .setPositiveButton("OK", null)
+            .show()
     }
 
-    private fun addEmployee(employee: Employee) {
-        val employeeData = hashMapOf(
-            "name" to employee.name,
-            "email" to employee.email,
-            "role" to employee.role,
-            "phone" to employee.phone,
-            "hireDate" to employee.hireDate,
-            "salary" to employee.salary,
-            "status" to employee.status,
-            "createdAt" to Timestamp.now(),
-            "updatedAt" to Timestamp.now()
-        )
-
-        firestore.collection("employees")
-            .add(employeeData)
-            .addOnSuccessListener { documentReference ->
-                Toast.makeText(requireContext(), "Employee added successfully", Toast.LENGTH_SHORT).show()
-            }
-            .addOnFailureListener { e ->
-                Toast.makeText(requireContext(), "Error adding employee: ${e.message}", Toast.LENGTH_SHORT).show()
-            }
-    }
+    // Removed addEmployee method - no longer needed since we only allow account creation
 
     private fun updateEmployee(employee: Employee) {
+        if (!isAdded) return
+        
+        // Show loading indicator
+        val progressDialog = androidx.appcompat.app.AlertDialog.Builder(requireContext())
+            .setView(R.layout.dialog_loading)
+            .setCancelable(false)
+            .create()
+        progressDialog.show()
+
         val employeeData = hashMapOf(
             "name" to employee.name,
             "email" to employee.email,
             "role" to employee.role,
             "phone" to employee.phone,
-            "hireDate" to employee.hireDate,
-            "salary" to employee.salary,
+            "totalDays" to employee.totalDays,
+            "remainingDays" to employee.remainingDays,
             "status" to employee.status,
             "updatedAt" to Timestamp.now()
         )
@@ -344,25 +363,55 @@ class EmployeesFragment : Fragment() {
         firestore.collection("employees").document(employee.id)
             .update(employeeData as Map<String, Any>)
             .addOnSuccessListener {
-                Toast.makeText(requireContext(), "Employee updated successfully", Toast.LENGTH_SHORT).show()
+                if (isAdded) {
+                    progressDialog.dismiss()
+                    Toast.makeText(requireContext(), "Employee updated successfully", Toast.LENGTH_SHORT).show()
+                    // Refresh the list to show the updated employee
+                    loadEmployees()
+                }
             }
             .addOnFailureListener { e ->
-                Toast.makeText(requireContext(), "Error updating employee: ${e.message}", Toast.LENGTH_SHORT).show()
+                if (isAdded) {
+                    progressDialog.dismiss()
+                    Toast.makeText(requireContext(), "Error updating employee: ${e.message}", Toast.LENGTH_SHORT).show()
+                }
             }
     }
 
     private fun deleteEmployee(employee: Employee) {
+        if (!isAdded) return
+        
+        android.util.Log.d("EmployeesFragment", "Attempting to delete employee: ${employee.name} (ID: ${employee.id})")
+        
         androidx.appcompat.app.AlertDialog.Builder(requireContext())
             .setTitle("Delete Employee")
             .setMessage("Are you sure you want to delete ${employee.name}? This action cannot be undone.")
             .setPositiveButton("Delete") { _, _ ->
+                // Show loading indicator
+                val progressDialog = androidx.appcompat.app.AlertDialog.Builder(requireContext())
+                    .setView(R.layout.dialog_loading)
+                    .setCancelable(false)
+                    .create()
+                progressDialog.show()
+
                 firestore.collection("employees").document(employee.id)
                     .delete()
                     .addOnSuccessListener {
-                        Toast.makeText(requireContext(), "Employee deleted successfully", Toast.LENGTH_SHORT).show()
+                        if (isAdded) {
+                            progressDialog.dismiss()
+                            android.util.Log.d("EmployeesFragment", "Employee deleted successfully from Firestore: ${employee.name}")
+                            Toast.makeText(requireContext(), "Employee deleted successfully", Toast.LENGTH_SHORT).show()
+                            // Refresh the list to show the updated data
+                            loadEmployees()
+                        }
                     }
                     .addOnFailureListener { e ->
-                        Toast.makeText(requireContext(), "Error deleting employee: ${e.message}", Toast.LENGTH_SHORT).show()
+                        if (isAdded) {
+                            progressDialog.dismiss()
+                            android.util.Log.e("EmployeesFragment", "Error deleting employee: ${e.message}")
+                            android.util.Log.e("EmployeesFragment", "Error details: ${e.cause}")
+                            Toast.makeText(requireContext(), "Error deleting employee: ${e.message}", Toast.LENGTH_SHORT).show()
+                        }
                     }
             }
             .setNegativeButton("Cancel", null)
@@ -371,12 +420,21 @@ class EmployeesFragment : Fragment() {
 
     override fun onDestroyView() {
         super.onDestroyView()
+        
+        // Remove listeners to prevent memory leaks
+        employeesListener?.remove()
+        employeesListener = null
+        
         _binding = null
     }
 
     companion object {
-        fun newInstance(): EmployeesFragment {
-            return EmployeesFragment()
+        fun newInstance(userRole: String = ""): EmployeesFragment {
+            return EmployeesFragment().apply {
+                arguments = Bundle().apply {
+                    putString("user_role", userRole)
+                }
+            }
         }
     }
 } 

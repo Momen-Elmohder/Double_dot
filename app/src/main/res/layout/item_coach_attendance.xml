@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/cardView"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_margin="8dp"
+    app:cardCornerRadius="8dp"
+    app:cardElevation="4dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <!-- Coach Name -->
+        <TextView
+            android:id="@+id/tvCoachName"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Coach Name"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:textColor="@color/black"
+            android:layout_marginBottom="8dp" />
+
+        <!-- Branch -->
+        <TextView
+            android:id="@+id/tvBranch"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Branch: Branch Name"
+            android:textSize="14sp"
+            android:textColor="@color/text_secondary_light"
+            android:layout_marginBottom="8dp" />
+
+        <!-- Total Days -->
+        <TextView
+            android:id="@+id/tvTotalDays"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Total Days: 0"
+            android:textSize="14sp"
+            android:textColor="@color/text_secondary_light"
+            android:layout_marginBottom="12dp" />
+
+        <!-- Attendance Stats Row -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="12dp">
+
+            <!-- Present Count -->
+            <TextView
+                android:id="@+id/tvPresentCount"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Present: 0"
+                android:textSize="14sp"
+                android:textColor="@color/success_light"
+                android:textStyle="bold" />
+
+            <!-- Absent Count -->
+            <TextView
+                android:id="@+id/tvAbsentCount"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Absent: 0"
+                android:textSize="14sp"
+                android:textColor="@color/error_light"
+                android:textStyle="bold" />
+
+        </LinearLayout>
+
+        <!-- Today's Status -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="12dp">
+
+            <TextView
+                android:id="@+id/tvTodayStatus"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Last: NOT MARKED"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:textColor="@color/text_secondary_light"
+                android:padding="8dp"
+                android:background="@drawable/status_background"
+                android:gravity="center" />
+
+            <TextView
+                android:id="@+id/btnUndo"
+                android:layout_width="48dp"
+                android:layout_height="24dp"
+                android:text="Undo"
+                android:textSize="8sp"
+                android:background="@drawable/undo_button_background"
+                android:textColor="@android:color/black"
+                android:gravity="center"
+                android:visibility="gone"
+                android:layout_marginStart="8dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:foreground="?android:attr/selectableItemBackground" />
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+</com.google.android.material.card.MaterialCardView> 

@@ -1,111 +1,108 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
     android:padding="16dp">
 
+    <!-- Type Selection -->
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Add New Expense"
-        android:textSize="20sp"
+        android:text="Type"
         android:textStyle="bold"
-        android:textColor="@color/black"
-        android:layout_marginBottom="16dp" />
+        android:layout_marginBottom="8dp" />
 
-    <!-- Title -->
-    <com.google.android.material.textfield.TextInputLayout
-        android:id="@+id/tilTitle"
+    <Spinner
+        android:id="@+id/spinnerType"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginBottom="12dp"
-        style="@style/Widget.Material3.TextInputLayout.OutlinedBox">
+        android:layout_marginBottom="16dp" />
 
-        <com.google.android.material.textfield.TextInputEditText
-            android:id="@+id/etTitle"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="Expense Title"
-            android:inputType="text" />
-
-    </com.google.android.material.textfield.TextInputLayout>
-
-    <!-- Amount -->
+    <!-- Amount Input -->
     <com.google.android.material.textfield.TextInputLayout
         android:id="@+id/tilAmount"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginBottom="12dp"
-        style="@style/Widget.Material3.TextInputLayout.OutlinedBox">
+        android:layout_marginBottom="16dp"
+        android:hint="Amount"
+        app:errorEnabled="true">
 
         <com.google.android.material.textfield.TextInputEditText
             android:id="@+id/etAmount"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="Amount"
-            android:inputType="numberDecimal" />
+            android:inputType="numberDecimal"
+            android:hint="Enter amount" />
 
     </com.google.android.material.textfield.TextInputLayout>
 
-    <!-- Category -->
+    <!-- Reason Input -->
     <com.google.android.material.textfield.TextInputLayout
-        android:id="@+id/tilCategory"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginBottom="12dp"
-        style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu">
-
-        <AutoCompleteTextView
-            android:id="@+id/actvCategory"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="Category"
-            android:inputType="none" />
-
-    </com.google.android.material.textfield.TextInputLayout>
-
-    <!-- Description -->
-    <com.google.android.material.textfield.TextInputLayout
-        android:id="@+id/tilDescription"
+        android:id="@+id/tilReason"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginBottom="16dp"
-        style="@style/Widget.Material3.TextInputLayout.OutlinedBox">
+        android:hint="Reason"
+        app:errorEnabled="true">
 
         <com.google.android.material.textfield.TextInputEditText
-            android:id="@+id/etDescription"
+            android:id="@+id/etReason"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="Description (Optional)"
             android:inputType="textMultiLine"
-            android:minLines="2"
-            android:maxLines="4" />
+            android:maxLines="3"
+            android:hint="Enter reason for expense/income" />
 
     </com.google.android.material.textfield.TextInputLayout>
+
+    <!-- Branch Selection -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Branch"
+        android:textStyle="bold"
+        android:layout_marginBottom="8dp" />
+
+    <Spinner
+        android:id="@+id/spinnerBranch"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="16dp" />
+
+    <!-- Added By Display -->
+    <TextView
+        android:id="@+id/tvAddedBy"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Added By: Loading..."
+        android:textStyle="bold"
+        android:layout_marginBottom="24dp"
+        android:padding="8dp"
+        android:background="@drawable/status_background"
+        android:textColor="@color/black" />
 
     <!-- Buttons -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal">
+        android:orientation="horizontal"
+        android:gravity="end">
 
-        <com.google.android.material.button.MaterialButton
+        <Button
             android:id="@+id/btnCancel"
-            android:layout_width="0dp"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:layout_marginEnd="8dp"
             android:text="Cancel"
-            style="@style/Widget.Material3.Button.OutlinedButton" />
+            android:layout_marginEnd="8dp"
+            style="@style/Widget.Material3.Button.TextButton" />
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnAddExpense"
-            android:layout_width="0dp"
+        <Button
+            android:id="@+id/btnAdd"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:layout_marginStart="8dp"
-            android:text="Add Expense"
+            android:text="Add"
             style="@style/Widget.Material3.Button" />
 
     </LinearLayout>

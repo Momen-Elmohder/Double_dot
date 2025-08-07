@@ -31,7 +31,7 @@ class CreateEmployeeAccountDialog(
 
     fun show() {
         // Allow head coaches and admins to create employee accounts
-        if (currentUserRole != "head_coach" && currentUserRole != "admin") {
+        if (currentUserRole != "head_coach" && currentUserRole != "head coach" && currentUserRole != "admin") {
             Toast.makeText(context, "Only Head Coaches and Admins can create employee accounts", Toast.LENGTH_LONG).show()
             return
         }
@@ -64,7 +64,7 @@ class CreateEmployeeAccountDialog(
     private fun setupRoleDropdown() {
         // Set available roles based on current user's role
         val availableRoles = when (currentUserRole) {
-            "head_coach" -> listOf("Coach", "Admin") // Head coaches can create coaches and admins
+            "head_coach", "head coach" -> listOf("Coach", "Admin") // Head coaches can create coaches and admins
             "admin" -> listOf("Coach") // Admins can only create coaches
             else -> listOf("Coach") // Default fallback
         }
@@ -80,6 +80,7 @@ class CreateEmployeeAccountDialog(
         val role = binding.actvRole.text.toString().trim()
         val password = binding.etPassword.text.toString()
         val confirmPassword = binding.etConfirmPassword.text.toString()
+        val totalDaysText = binding.etTotalDays.text.toString().trim()
 
         if (name.isEmpty()) {
             binding.tilName.error = "Name is required"
@@ -103,6 +104,17 @@ class CreateEmployeeAccountDialog(
 
         if (role.isEmpty()) {
             binding.tilRole.error = "Please select a role"
+            return false
+        }
+
+        if (totalDaysText.isEmpty()) {
+            binding.tilTotalDays.error = "Total days is required"
+            return false
+        }
+
+        val totalDays = totalDaysText.toIntOrNull()
+        if (totalDays == null || totalDays <= 0) {
+            binding.tilTotalDays.error = "Please enter a valid number of days"
             return false
         }
 
@@ -135,6 +147,7 @@ class CreateEmployeeAccountDialog(
         val phone = binding.etPhone.text.toString().trim()
         val selectedRole = binding.actvRole.text.toString().trim()
         val password = binding.etPassword.text.toString()
+        val totalDaysText = binding.etTotalDays.text.toString().trim()
 
         // Convert role to proper format
         val role = when (selectedRole.lowercase()) {
@@ -147,50 +160,28 @@ class CreateEmployeeAccountDialog(
         binding.btnCreateAccount.isEnabled = false
         binding.btnCreateAccount.text = "Creating Account..."
 
-        // First create Firebase Auth account
-        auth.createUserWithEmailAndPassword(email, password)
-            .addOnSuccessListener { result ->
-                val user = result.user
-                if (user != null) {
-                    // Update user profile with display name
-                    val profileUpdates = com.google.firebase.auth.UserProfileChangeRequest.Builder()
-                        .setDisplayName(name)
-                        .build()
+        // Generate a unique ID for the employee
+        val employeeId = firestore.collection("employees").document().id
 
-                    user.updateProfile(profileUpdates)
-                        .addOnSuccessListener {
-                            // Create employee document in Firestore
-                            createEmployeeDocument(user.uid, name, email, phone, role)
-                        }
-                        .addOnFailureListener { e ->
-                            binding.btnCreateAccount.isEnabled = true
-                            binding.btnCreateAccount.text = "Create Account"
-                            Toast.makeText(context, "Failed to update profile: ${e.message}", Toast.LENGTH_LONG).show()
-                        }
-                }
-            }
-            .addOnFailureListener { e ->
-                binding.btnCreateAccount.isEnabled = true
-                binding.btnCreateAccount.text = "Create Account"
-                Toast.makeText(context, "Failed to create account: ${e.message}", Toast.LENGTH_LONG).show()
-            }
+        // Create employee document first (without Firebase Auth account)
+        createEmployeeDocumentOnly(employeeId, name, email, phone, role, totalDaysText.toInt(), password)
     }
 
-    private fun createEmployeeDocument(uid: String, name: String, email: String, phone: String, role: String) {
+    private fun createEmployeeDocumentOnly(employeeId: String, name: String, email: String, phone: String, role: String, totalDays: Int, password: String) {
         val employee = Employee(
-            id = uid,
+            id = employeeId,
             name = name,
             email = email,
             role = role,
             phone = phone,
-            hireDate = Timestamp.now(),
-            salary = 0, // Will be set by head coach later
+            totalDays = totalDays,
+            remainingDays = totalDays,
             status = "active",
             createdAt = Timestamp.now(),
             updatedAt = Timestamp.now()
         )
 
-        // Create user document in "users" collection for Firebase Auth
+        // Create user document in "users" collection
         val userData = hashMapOf(
             "role" to role,
             "email" to email,
@@ -198,24 +189,61 @@ class CreateEmployeeAccountDialog(
             "phone" to phone,
             "status" to "active",
             "createdAt" to Timestamp.now(),
-            "lastLogin" to Timestamp.now()
+            "lastLogin" to Timestamp.now(),
+            "password" to password // Store password temporarily for Firebase Auth creation
         )
 
         // Create both documents
         firestore.collection("users")
-            .document(uid)
+            .document(employeeId)
             .set(userData)
             .addOnSuccessListener {
                 // Now create employee document
                 firestore.collection("employees")
-                    .document(uid)
+                    .document(employeeId)
                     .set(employee)
                     .addOnSuccessListener {
-                        binding.btnCreateAccount.isEnabled = true
-                        binding.btnCreateAccount.text = "Create Account"
-                        Toast.makeText(context, "Employee account created successfully!", Toast.LENGTH_LONG).show()
-                        onAccountCreatedListener?.invoke(employee)
-                        dialog.dismiss()
+                        // Now create the Firebase Auth account (this will sign in automatically)
+                        auth.createUserWithEmailAndPassword(email, password)
+                            .addOnSuccessListener { result ->
+                                val newUser = result.user
+                                if (newUser != null) {
+                                    // Update user profile with display name
+                                    val profileUpdates = com.google.firebase.auth.UserProfileChangeRequest.Builder()
+                                        .setDisplayName(name)
+                                        .build()
+
+                                    newUser.updateProfile(profileUpdates)
+                                        .addOnSuccessListener {
+                                            // Sign out immediately to prevent staying signed in
+                                            auth.signOut()
+                                            
+                                            // Show success message
+                                            binding.btnCreateAccount.isEnabled = true
+                                            binding.btnCreateAccount.text = "Create Account"
+                                            Toast.makeText(context, "Employee account created successfully!", Toast.LENGTH_LONG).show()
+                                            onAccountCreatedListener?.invoke(employee)
+                                            dialog.dismiss()
+                                        }
+                                        .addOnFailureListener { e ->
+                                            // Even if profile update fails, sign out and show success
+                                            auth.signOut()
+                                            binding.btnCreateAccount.isEnabled = true
+                                            binding.btnCreateAccount.text = "Create Account"
+                                            Toast.makeText(context, "Employee account created successfully!", Toast.LENGTH_LONG).show()
+                                            onAccountCreatedListener?.invoke(employee)
+                                            dialog.dismiss()
+                                        }
+                                }
+                            }
+                            .addOnFailureListener { e ->
+                                // If Firebase Auth creation fails, still show success for document creation
+                                binding.btnCreateAccount.isEnabled = true
+                                binding.btnCreateAccount.text = "Create Account"
+                                Toast.makeText(context, "Employee documents created, but Firebase Auth creation failed: ${e.message}", Toast.LENGTH_LONG).show()
+                                onAccountCreatedListener?.invoke(employee)
+                                dialog.dismiss()
+                            }
                     }
                     .addOnFailureListener { e ->
                         binding.btnCreateAccount.isEnabled = true

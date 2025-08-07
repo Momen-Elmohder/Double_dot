@@ -11,10 +11,13 @@ import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.view.GravityCompat
 import androidx.drawerlayout.widget.DrawerLayout
 import androidx.fragment.app.Fragment
-import com.example.double_dot_demo.fragments.CalendarFragment
+import com.example.double_dot_demo.fragments.AttendanceFragment
+import com.example.double_dot_demo.fragments.CompletedTraineesFragment
 import com.example.double_dot_demo.fragments.EmployeesFragment
 import com.example.double_dot_demo.fragments.ExpensesFragment
 import com.example.double_dot_demo.fragments.TraineesFragment
+import com.example.double_dot_demo.fragments.CoachAttendanceFragment
+import com.example.double_dot_demo.fragments.SalaryFragment
 import com.example.double_dot_demo.utils.RoleFixer
 import com.google.android.material.bottomnavigation.BottomNavigationView
 import com.google.android.material.appbar.MaterialToolbar
@@ -79,7 +82,7 @@ class DashboardActivity : AppCompatActivity(), NavigationView.OnNavigationItemSe
             // Emergency recovery - try to load a simple fragment
             try {
                 // Try to load a basic fragment without any complex setup
-                val simpleFragment = CalendarFragment.newInstance()
+                val simpleFragment = AttendanceFragment()
                 supportFragmentManager.beginTransaction()
                     .replace(R.id.fragmentContainer, simpleFragment)
                     .commit()
@@ -196,7 +199,26 @@ class DashboardActivity : AppCompatActivity(), NavigationView.OnNavigationItemSe
     private fun setupRoleBasedMenuVisibility() {
         val menu = navigationView.menu
         
-
+        // Set visibility for "Completed" menu item based on role
+        val completedMenuItem = menu.findItem(R.id.nav_completed)
+        if (completedMenuItem != null) {
+            // Only show "Completed" for admin and head coach
+            completedMenuItem.isVisible = (currentUserRole == "admin" || currentUserRole == "head_coach")
+        }
+        
+        // Set visibility for "Coach Attendance" menu item based on role
+        val coachAttendanceMenuItem = menu.findItem(R.id.nav_coach_attendance)
+        if (coachAttendanceMenuItem != null) {
+            // Only show "Coach Attendance" for admin and head coach
+            coachAttendanceMenuItem.isVisible = (currentUserRole == "admin" || currentUserRole == "head_coach")
+        }
+        
+        // Set visibility for "Salary" menu item based on role
+        val salaryMenuItem = menu.findItem(R.id.nav_salary)
+        if (salaryMenuItem != null) {
+            // Only show "Salary" for admin and head coach
+            salaryMenuItem.isVisible = (currentUserRole == "admin" || currentUserRole == "head_coach")
+        }
         
         // Hide expenses for admin role
         if (currentUserRole == "admin") {
@@ -293,7 +315,7 @@ class DashboardActivity : AppCompatActivity(), NavigationView.OnNavigationItemSe
             bottomNavigation = findViewById(R.id.bottomNavigation)
             
             if (currentUserRole == "coach") {
-                // Simplified navigation for coaches
+                // Simplified navigation for coaches - NO EMPLOYEES ACCESS
                 setupSimpleBottomNavigation()
             } else {
                 // Full navigation for other roles
@@ -348,10 +370,10 @@ class DashboardActivity : AppCompatActivity(), NavigationView.OnNavigationItemSe
         try {
             bottomNavigation = findViewById(R.id.bottomNavigation)
             
-            // Show all tabs for coaches (calendar, trainees, employees)
+            // Show only calendar and trainees tabs for coaches (NO EMPLOYEES)
             bottomNavigation.menu.findItem(R.id.nav_calendar)?.isVisible = true
             bottomNavigation.menu.findItem(R.id.nav_trainees)?.isVisible = true
-            bottomNavigation.menu.findItem(R.id.nav_employees)?.isVisible = true
+            bottomNavigation.menu.findItem(R.id.nav_employees)?.isVisible = false
             
             // Start with trainees tab
             bottomNavigation.selectedItemId = R.id.nav_trainees
@@ -360,15 +382,11 @@ class DashboardActivity : AppCompatActivity(), NavigationView.OnNavigationItemSe
                 try {
                     when (menuItem.itemId) {
                         R.id.nav_calendar -> {
-                            loadFragment(CalendarFragment.newInstance().apply {
-                                arguments = Bundle().apply {
-                                    putString("user_role", currentUserRole)
-                                }
-                            })
+                            loadFragment(AttendanceFragment())
                             true
                         }
                         R.id.nav_trainees -> {
-                            loadFragment(TraineesFragment.newInstance().apply {
+                            loadFragment(TraineesFragment().apply {
                                 arguments = Bundle().apply {
                                     putString("user_role", currentUserRole)
                                 }
@@ -376,13 +394,9 @@ class DashboardActivity : AppCompatActivity(), NavigationView.OnNavigationItemSe
                             true
                         }
                         R.id.nav_employees -> {
-                            // Coaches can view employees but with limited access
-                            loadFragment(EmployeesFragment.newInstance().apply {
-                                arguments = Bundle().apply {
-                                    putString("user_role", currentUserRole)
-                                }
-                            })
-                            true
+                            // Coaches cannot access employees
+                            showToast("You don't have permission to access employees")
+                            false
                         }
                         else -> false
                     }
@@ -441,15 +455,11 @@ class DashboardActivity : AppCompatActivity(), NavigationView.OnNavigationItemSe
                 try {
                     when (menuItem.itemId) {
                         R.id.nav_calendar -> {
-                            loadFragment(CalendarFragment.newInstance().apply {
-                                arguments = Bundle().apply {
-                                    putString("user_role", currentUserRole)
-                                }
-                            })
+                            loadFragment(AttendanceFragment())
                             true
                         }
                         R.id.nav_trainees -> {
-                            loadFragment(TraineesFragment.newInstance().apply {
+                            loadFragment(TraineesFragment().apply {
                                 arguments = Bundle().apply {
                                     putString("user_role", currentUserRole)
                                 }
@@ -475,29 +485,17 @@ class DashboardActivity : AppCompatActivity(), NavigationView.OnNavigationItemSe
                 try {
                     when (menuItem.itemId) {
                         R.id.nav_calendar -> {
-                            loadFragment(CalendarFragment.newInstance().apply {
-                                arguments = Bundle().apply {
-                                    putString("user_role", currentUserRole)
-                                }
-                            })
+                            loadFragment(AttendanceFragment())
                             true
                         }
                         R.id.nav_trainees -> {
-                            loadFragment(TraineesFragment.newInstance().apply {
-                                arguments = Bundle().apply {
-                                    putString("user_role", currentUserRole)
-                                }
-                            })
+                            loadFragment(TraineesFragment())
                             true
                         }
                         R.id.nav_employees -> {
                             // Only allow head coaches and admins to access employees
                             if (currentUserRole == "head_coach" || currentUserRole == "admin") {
-                                loadFragment(EmployeesFragment.newInstance().apply {
-                                    arguments = Bundle().apply {
-                                        putString("user_role", currentUserRole)
-                                    }
-                                })
+                                loadFragment(EmployeesFragment.newInstance(currentUserRole))
                                 true
                             } else {
                                 showToast("You don't have permission to access employees")
@@ -530,30 +528,22 @@ class DashboardActivity : AppCompatActivity(), NavigationView.OnNavigationItemSe
     
     private fun loadDefaultFragment(userRole: String) {
         try {
-            // For head coach, start with calendar
+            // For head coach, start with attendance
             if (userRole == "head_coach") {
                 bottomNavigation.selectedItemId = R.id.nav_calendar
-                loadFragment(CalendarFragment.newInstance().apply {
-                    arguments = Bundle().apply {
-                        putString("user_role", userRole)
-                    }
-                })
+                loadFragment(AttendanceFragment())
             } else if (userRole == "coach") {
                 // Coaches start with trainees
                 bottomNavigation.selectedItemId = R.id.nav_trainees
-                loadFragment(TraineesFragment.newInstance().apply {
+                loadFragment(TraineesFragment().apply {
                     arguments = Bundle().apply {
-                        putString("user_role", userRole)
+                        putString("user_role", currentUserRole)
                     }
                 })
             } else {
-                // For other roles, start with calendar
+                // For other roles, start with attendance
                 bottomNavigation.selectedItemId = R.id.nav_calendar
-                loadFragment(CalendarFragment.newInstance().apply {
-                    arguments = Bundle().apply {
-                        putString("user_role", userRole)
-                    }
-                })
+                loadFragment(AttendanceFragment())
             }
         } catch (e: Exception) {
             android.util.Log.e("DashboardActivity", "Error loading default fragment: ${e.message}")
@@ -562,9 +552,9 @@ class DashboardActivity : AppCompatActivity(), NavigationView.OnNavigationItemSe
             // Fallback: try to load trainees fragment
             try {
                 bottomNavigation.selectedItemId = R.id.nav_trainees
-                loadFragment(TraineesFragment.newInstance().apply {
+                loadFragment(TraineesFragment().apply {
                     arguments = Bundle().apply {
-                        putString("user_role", userRole)
+                        putString("user_role", currentUserRole)
                     }
                 })
             } catch (fallbackException: Exception) {
@@ -614,14 +604,34 @@ class DashboardActivity : AppCompatActivity(), NavigationView.OnNavigationItemSe
             }
             R.id.nav_expenses -> {
                 // Check role-based access for expenses
-                if (currentUserRole == "head_coach") {
-                    loadFragment(ExpensesFragment.newInstance().apply {
-                        arguments = Bundle().apply {
-                            putString("user_role", currentUserRole)
-                        }
-                    })
+                if (currentUserRole == "head_coach" || currentUserRole == "admin") {
+                    loadFragment(ExpensesFragment.newInstance())
                 } else {
                     showToast("You don't have permission to access expenses")
+                }
+            }
+            R.id.nav_completed -> {
+                // Check role-based access for completed trainees
+                if (currentUserRole == "head_coach" || currentUserRole == "admin") {
+                    loadFragment(CompletedTraineesFragment())
+                } else {
+                    showToast("You don't have permission to access completed trainees")
+                }
+            }
+            R.id.nav_coach_attendance -> {
+                // Check role-based access for coach attendance
+                if (currentUserRole == "head_coach" || currentUserRole == "admin") {
+                    loadFragment(CoachAttendanceFragment.newInstance())
+                } else {
+                    showToast("You don't have permission to access coach attendance")
+                }
+            }
+            R.id.nav_salary -> {
+                // Check role-based access for salary
+                if (currentUserRole == "head_coach" || currentUserRole == "admin") {
+                    loadFragment(SalaryFragment.newInstance())
+                } else {
+                    showToast("You don't have permission to access salary information")
                 }
             }
             R.id.nav_sign_out -> {
@@ -635,7 +645,11 @@ class DashboardActivity : AppCompatActivity(), NavigationView.OnNavigationItemSe
     }
     
     private fun showToast(message: String) {
-        android.widget.Toast.makeText(this, message, android.widget.Toast.LENGTH_SHORT).show()
+        try {
+            android.widget.Toast.makeText(this, message, android.widget.Toast.LENGTH_SHORT).show()
+        } catch (e: Exception) {
+            android.util.Log.e("DashboardActivity", "Error showing toast: ${e.message}")
+        }
     }
     
     override fun onBackPressed() {

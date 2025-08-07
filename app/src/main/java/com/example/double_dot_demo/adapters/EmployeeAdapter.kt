@@ -23,7 +23,6 @@ class EmployeeAdapter(
         val ivAvatar: ImageView = itemView.findViewById(R.id.ivAvatar)
         val tvName: TextView = itemView.findViewById(R.id.tvName)
         val tvDetails: TextView = itemView.findViewById(R.id.tvDetails)
-        val tvStatus: TextView = itemView.findViewById(R.id.tvStatus)
         val btnEdit: ImageView = itemView.findViewById(R.id.btnEdit)
         val btnDelete: ImageView = itemView.findViewById(R.id.btnDelete)
     }
@@ -39,15 +38,6 @@ class EmployeeAdapter(
         
         holder.tvName.text = employee.name
         holder.tvDetails.text = buildDetailsText(employee)
-        holder.tvStatus.text = employee.status.replaceFirstChar { it.uppercase() }
-        
-        // Set status color
-        val statusColor = if (employee.status == "active") {
-            holder.itemView.context.getColor(R.color.success_light)
-        } else {
-            holder.itemView.context.getColor(R.color.error_light)
-        }
-        holder.tvStatus.setTextColor(statusColor)
 
         holder.btnEdit.setOnClickListener {
             onEditClick(employee)
@@ -66,11 +56,8 @@ class EmployeeAdapter(
         details.add("Role: ${employee.role.replace("_", " ").replaceFirstChar { it.uppercase() }}")
         details.add("Email: ${employee.email}")
         details.add("Phone: ${employee.phone}")
-        details.add("Salary: $${employee.salary}")
         
-        employee.hireDate?.let {
-            details.add("Hired: ${dateFormat.format(it.toDate())}")
-        }
+        details.add("Days: ${employee.remainingDays}/${employee.totalDays}")
         
         return details.joinToString(" • ")
     }
