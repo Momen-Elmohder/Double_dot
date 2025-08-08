@@ -16,11 +16,15 @@ import com.example.double_dot_demo.databinding.FragmentTraineesBinding
 import com.example.double_dot_demo.dialogs.AddTraineeDialog
 import com.example.double_dot_demo.dialogs.RenewTraineeDialog
 import com.example.double_dot_demo.models.Trainee
+import com.example.double_dot_demo.utils.LoadingManager
+import com.example.double_dot_demo.utils.PerformanceUtils
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
+import kotlinx.coroutines.*
 import java.text.SimpleDateFormat
 import java.util.*
+import androidx.recyclerview.widget.RecyclerView
 
 class TraineesFragment : Fragment() {
 
@@ -28,6 +32,7 @@ class TraineesFragment : Fragment() {
     private val binding get() = _binding!!
     private lateinit var firestore: FirebaseFirestore
     private lateinit var traineeAdapter: TraineeAdapter
+    private lateinit var loadingManager: LoadingManager
 
     private val trainees = mutableListOf<Trainee>()
     private val filteredTrainees = mutableListOf<Trainee>()
@@ -41,10 +46,11 @@ class TraineesFragment : Fragment() {
     private var selectedBranch: String = ""
     private var selectedStatus: String = ""
 
+    // Coroutine scope for background operations
+    private val fragmentScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     
     // Listener registration for proper cleanup
     private var traineesListener: ListenerRegistration? = null
-
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -60,6 +66,9 @@ class TraineesFragment : Fragment() {
         
         try {
             firestore = FirebaseFirestore.getInstance()
+            
+            // Initialize loading manager
+            loadingManager = LoadingManager(binding.loadingOverlay.root)
             
             // Get current user role from arguments
             currentUserRole = arguments?.getString("user_role") ?: "coach"
@@ -77,19 +86,20 @@ class TraineesFragment : Fragment() {
             // Setup add button with initial role (will be updated when role is loaded)
             setupAddButton()
             
-            // Add timeout for loading data
-            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+            // Load trainees with loading animation
+            fragmentScope.launch {
                 try {
-                    if (isAdded) {
-                        loadTrainees()
-                    }
+                    loadingManager.showLoading("Loading trainees...")
+                    loadTrainees()
                 } catch (e: Exception) {
                     android.util.Log.e("TraineesFragment", "Error loading data: ${e.message}")
                     if (isAdded) {
                         Toast.makeText(requireContext(), "Error loading data: ${e.message}", Toast.LENGTH_LONG).show()
                     }
+                } finally {
+                    loadingManager.hideLoading()
                 }
-            }, 1000) // 1 second delay
+            }
             
         } catch (e: Exception) {
             android.util.Log.e("TraineesFragment", "Error in onViewCreated: ${e.message}")
@@ -104,7 +114,6 @@ class TraineesFragment : Fragment() {
             binding.recyclerViewTrainees.layoutManager = LinearLayoutManager(requireContext())
             
             traineeAdapter = TraineeAdapter(
-                trainees = trainees,
                 isCoachView = false, // Always show full view with buttons
                 onEditClick = { trainee -> showEditTraineeDialog(trainee) },
                 onDeleteClick = { trainee -> deleteTrainee(trainee) },
@@ -114,6 +123,20 @@ class TraineesFragment : Fragment() {
             )
             
             binding.recyclerViewTrainees.adapter = traineeAdapter
+            
+            // Setup optimized scroll listener
+            binding.recyclerViewTrainees.addOnScrollListener(object : RecyclerView.OnScrollListener() {
+                override fun onScrollStateChanged(recyclerView: RecyclerView, newState: Int) {
+                    super.onScrollStateChanged(recyclerView, newState)
+                    // Handle scroll state changes if needed
+                }
+                
+                override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
+                    super.onScrolled(recyclerView, dx, dy)
+                    // Handle scroll events if needed
+                }
+            })
+            
             android.util.Log.d("TraineesFragment", "RecyclerView setup completed")
         } catch (e: Exception) {
             android.util.Log.e("TraineesFragment", "Error setting up RecyclerView: ${e.message}")
@@ -144,13 +167,19 @@ class TraineesFragment : Fragment() {
     }
 
     private fun setupSearchAndSort() {
-        // Setup search functionality
+        // Setup search functionality with debouncing
         binding.etSearch.addTextChangedListener(object : TextWatcher {
+            private var searchJob: Job? = null
+            
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
             override fun afterTextChanged(s: Editable?) {
-                searchQuery = s.toString().trim()
-                filterAndSortTrainees()
+                searchJob?.cancel()
+                searchJob = fragmentScope.launch {
+                    delay(300) // Debounce search
+                    searchQuery = s.toString().trim()
+                    filterAndSortTrainees()
+                }
             }
         })
 
@@ -194,8 +223,6 @@ class TraineesFragment : Fragment() {
             selectedStatus = if (position == 0) "" else statusOptions[position]
             filterAndSortTrainees()
         }
-
-
     }
 
     private fun loadCurrentUserRole() {
@@ -233,10 +260,6 @@ class TraineesFragment : Fragment() {
         }
     }
 
-
-
-
-
     private fun loadTrainees() {
         try {
             android.util.Log.d("TraineesFragment", "Loading trainees for role: $currentUserRole")
@@ -263,22 +286,38 @@ class TraineesFragment : Fragment() {
                 }
 
                 if (isAdded) {
-                    trainees.clear()
-                    android.util.Log.d("TraineesFragment", "Snapshot size: ${snapshot?.size() ?: 0}")
-                    
-                    if (snapshot != null) {
-                        for (document in snapshot) {
-                            val trainee = document.toObject(Trainee::class.java)
-                            trainee?.let { originalTrainee ->
-                                val traineeWithId = originalTrainee.copy(id = document.id)
-                                trainees.add(traineeWithId)
-                                android.util.Log.d("TraineesFragment", "Added trainee: ${traineeWithId.name}")
+                    // Process data in background
+                    PerformanceUtils.launchInBackground {
+                        try {
+                            val newTrainees = mutableListOf<Trainee>()
+                            android.util.Log.d("TraineesFragment", "Snapshot size: ${snapshot?.size() ?: 0}")
+                            
+                            if (snapshot != null) {
+                                for (document in snapshot) {
+                                    val trainee = document.toObject(Trainee::class.java)
+                                    trainee?.let { originalTrainee ->
+                                        val traineeWithId = originalTrainee.copy(id = document.id)
+                                        newTrainees.add(traineeWithId)
+                                        android.util.Log.d("TraineesFragment", "Added trainee: ${traineeWithId.name}")
+                                    }
+                                }
                             }
+
+                            // Update UI on main thread
+                            PerformanceUtils.runOnMainThread {
+                                try {
+                                    trainees.clear()
+                                    trainees.addAll(newTrainees)
+                                    android.util.Log.d("TraineesFragment", "Total trainees loaded: ${trainees.size}")
+                                    filterAndSortTrainees()
+                                } catch (e: Exception) {
+                                    android.util.Log.e("TraineesFragment", "Error updating UI: ${e.message}")
+                                }
+                            }
+                        } catch (e: Exception) {
+                            android.util.Log.e("TraineesFragment", "Error processing trainees: ${e.message}")
                         }
                     }
-
-                    android.util.Log.d("TraineesFragment", "Total trainees loaded: ${trainees.size}")
-                    filterAndSortTrainees()
                 }
             }
         } catch (e: Exception) {
@@ -294,98 +333,111 @@ class TraineesFragment : Fragment() {
         android.util.Log.d("TraineesFragment", "Search query: '$searchQuery', Sort by: '$sortBy'")
         android.util.Log.d("TraineesFragment", "Filters - Branch: '$selectedBranch', Status: '$selectedStatus'")
         
-        // Filter trainees based on search query and filters
-        filteredTrainees.clear()
-        
-        trainees.forEach { trainee ->
-            // Search filter
-            val matchesSearch = searchQuery.isEmpty() || 
-                trainee.name.contains(searchQuery, ignoreCase = true) ||
-                trainee.branch.contains(searchQuery, ignoreCase = true) ||
-                trainee.coachName.contains(searchQuery, ignoreCase = true) ||
-                trainee.status.contains(searchQuery, ignoreCase = true) ||
-                trainee.remainingSessions.toString().contains(searchQuery)
-            
-            // Branch filter
-            val matchesBranch = selectedBranch.isEmpty() || trainee.branch == selectedBranch
-            
-            // Status filter
-            val matchesStatus = selectedStatus.isEmpty() || trainee.status == selectedStatus
-            
-            if (matchesSearch && matchesBranch && matchesStatus) {
-                filteredTrainees.add(trainee)
-            }
-        }
-
-        android.util.Log.d("TraineesFragment", "After filtering: ${filteredTrainees.size} trainees")
-
-        // Sort filtered trainees
-        val sortedList = when (sortBy) {
-            "age" -> {
-                android.util.Log.d("TraineesFragment", "Sorting by Age")
-                filteredTrainees.sortedBy { it.age }
-            }
-            "status" -> {
-                android.util.Log.d("TraineesFragment", "Sorting by Status")
-                filteredTrainees.sortedBy { it.status }
-            }
-            "completed" -> {
-                android.util.Log.d("TraineesFragment", "Sorting by Completed sessions")
-                filteredTrainees.sortedBy { trainee ->
-                    val completedSessions = trainee.attendanceSessions.values.count { isPresent -> isPresent }
-                    android.util.Log.d("TraineesFragment", "Trainee ${trainee.name}: $completedSessions completed sessions")
-                    completedSessions
-                }
-            }
-            "active" -> {
-                android.util.Log.d("TraineesFragment", "Sorting by Active status")
-                filteredTrainees.sortedBy { trainee ->
-                    val isActive = trainee.status == "active" || trainee.status == "academy" || trainee.status == "team" || trainee.status == "preparation"
-                    !isActive // Put active trainees first
-                }
-            }
-
-            "frozen" -> {
-                android.util.Log.d("TraineesFragment", "Sorting by Frozen status")
-                filteredTrainees.sortedBy { trainee ->
-                    trainee.status == "frozen"
-                }
-            }
-            "complete" -> {
-                android.util.Log.d("TraineesFragment", "Sorting by Complete status")
-                filteredTrainees.sortedBy { trainee ->
-                    trainee.status == "completed"
-                }
-            }
-            else -> {
-                android.util.Log.d("TraineesFragment", "Default sorting by Age")
-                filteredTrainees.sortedBy { it.age }
-            }
-        }
-        
-        // Replace the filtered list with the sorted list
-        filteredTrainees.clear()
-        filteredTrainees.addAll(sortedList)
-
-        // Log the first few trainees to verify sorting
-        if (filteredTrainees.isNotEmpty()) {
-            android.util.Log.d("TraineesFragment", "First 3 trainees after sorting:")
-            filteredTrainees.take(3).forEachIndexed { index, trainee ->
-                when (sortBy) {
-                    "age" -> android.util.Log.d("TraineesFragment", "${index + 1}. ${trainee.name} - Age: ${trainee.age}")
-                    "status" -> android.util.Log.d("TraineesFragment", "${index + 1}. ${trainee.name} - Status: ${trainee.status}")
-                    "completed" -> {
-                        val completedSessions = trainee.attendanceSessions.values.count { isPresent -> isPresent }
-                        android.util.Log.d("TraineesFragment", "${index + 1}. ${trainee.name} - Completed: $completedSessions")
+        // Process filtering and sorting in background
+        PerformanceUtils.launchInBackground {
+            try {
+                // Filter trainees based on search query and filters
+                val newFilteredTrainees = mutableListOf<Trainee>()
+                
+                trainees.forEach { trainee ->
+                    // Search filter
+                    val matchesSearch = searchQuery.isEmpty() || 
+                        trainee.name?.contains(searchQuery, ignoreCase = true) == true ||
+                        trainee.branch?.contains(searchQuery, ignoreCase = true) == true ||
+                        trainee.coachName?.contains(searchQuery, ignoreCase = true) == true ||
+                        trainee.status?.contains(searchQuery, ignoreCase = true) == true ||
+                        trainee.remainingSessions.toString().contains(searchQuery)
+                    
+                    // Branch filter
+                    val matchesBranch = selectedBranch.isEmpty() || trainee.branch == selectedBranch
+                    
+                    // Status filter
+                    val matchesStatus = selectedStatus.isEmpty() || trainee.status == selectedStatus
+                    
+                    if (matchesSearch && matchesBranch && matchesStatus) {
+                        newFilteredTrainees.add(trainee)
                     }
                 }
+
+                android.util.Log.d("TraineesFragment", "After filtering: ${newFilteredTrainees.size} trainees")
+
+                // Sort filtered trainees
+                val sortedList = when (sortBy) {
+                    "age" -> {
+                        android.util.Log.d("TraineesFragment", "Sorting by Age")
+                        newFilteredTrainees.sortedBy { it.age }
+                    }
+                    "status" -> {
+                        android.util.Log.d("TraineesFragment", "Sorting by Status")
+                        newFilteredTrainees.sortedBy { it.status }
+                    }
+                    "completed" -> {
+                        android.util.Log.d("TraineesFragment", "Sorting by Completed sessions")
+                        newFilteredTrainees.sortedBy { trainee ->
+                            val completedSessions = trainee.attendanceSessions.values.count { isPresent -> isPresent }
+                            android.util.Log.d("TraineesFragment", "Trainee ${trainee.name}: $completedSessions completed sessions")
+                            completedSessions
+                        }
+                    }
+                    "active" -> {
+                        android.util.Log.d("TraineesFragment", "Sorting by Active status")
+                        newFilteredTrainees.sortedBy { trainee ->
+                            val isActive = trainee.status == "active" || trainee.status == "academy" || trainee.status == "team" || trainee.status == "preparation"
+                            !isActive // Put active trainees first
+                        }
+                    }
+                    "frozen" -> {
+                        android.util.Log.d("TraineesFragment", "Sorting by Frozen status")
+                        newFilteredTrainees.sortedBy { trainee ->
+                            trainee.status == "frozen"
+                        }
+                    }
+                    "complete" -> {
+                        android.util.Log.d("TraineesFragment", "Sorting by Complete status")
+                        newFilteredTrainees.sortedBy { trainee ->
+                            trainee.status == "completed"
+                        }
+                    }
+                    else -> {
+                        android.util.Log.d("TraineesFragment", "Default sorting by Age")
+                        newFilteredTrainees.sortedBy { it.age }
+                    }
+                }
+                
+                // Update UI on main thread
+                PerformanceUtils.runOnMainThread {
+                    try {
+                        filteredTrainees.clear()
+                        filteredTrainees.addAll(sortedList)
+                        
+                        // Update adapter with new data
+                        traineeAdapter.submitList(filteredTrainees.toList())
+                        
+                        // Log the first few trainees to verify sorting
+                        if (filteredTrainees.isNotEmpty()) {
+                            android.util.Log.d("TraineesFragment", "First 3 trainees after sorting:")
+                            filteredTrainees.take(3).forEachIndexed { index, trainee ->
+                                when (sortBy) {
+                                    "age" -> android.util.Log.d("TraineesFragment", "${index + 1}. ${trainee.name} - Age: ${trainee.age}")
+                                    "status" -> android.util.Log.d("TraineesFragment", "${index + 1}. ${trainee.name} - Status: ${trainee.status}")
+                                    "completed" -> {
+                                        val completedSessions = trainee.attendanceSessions.values.count { isPresent -> isPresent }
+                                        android.util.Log.d("TraineesFragment", "${index + 1}. ${trainee.name} - Completed sessions: $completedSessions")
+                                    }
+                                    "active" -> android.util.Log.d("TraineesFragment", "${index + 1}. ${trainee.name} - Status: ${trainee.status}")
+                                    "frozen" -> android.util.Log.d("TraineesFragment", "${index + 1}. ${trainee.name} - Status: ${trainee.status}")
+                                    "complete" -> android.util.Log.d("TraineesFragment", "${index + 1}. ${trainee.name} - Status: ${trainee.status}")
+                                    else -> android.util.Log.d("TraineesFragment", "${index + 1}. ${trainee.name} - Age: ${trainee.age}")
+                                }
+                            }
+                        }
+                    } catch (e: Exception) {
+                        android.util.Log.e("TraineesFragment", "Error updating adapter: ${e.message}")
+                    }
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("TraineesFragment", "Error filtering and sorting: ${e.message}")
             }
-        }
-        
-        if (isAdded) {
-            updateStats()
-            android.util.Log.d("TraineesFragment", "Notifying adapter. Filtered count: ${filteredTrainees.size}")
-            traineeAdapter.notifyDataSetChanged()
         }
     }
 
@@ -667,6 +719,8 @@ class TraineesFragment : Fragment() {
                  traineesListener?.remove()
         traineesListener = null
         
+        // Cancel any pending coroutines
+        fragmentScope.coroutineContext.cancelChildren()
         
         _binding = null
     }

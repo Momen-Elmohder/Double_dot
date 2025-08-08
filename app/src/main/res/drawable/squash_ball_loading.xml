@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="utf-8"?>
+<animated-vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt">
+    
+    <aapt:attr name="android:drawable">
+        <vector
+            android:width="48dp"
+            android:height="48dp"
+            android:viewportWidth="48"
+            android:viewportHeight="48">
+            
+            <path
+                android:name="squash_ball"
+                android:pathData="M24,24m-20,0a20,20 0,1 1,40 0a20,20 0,1 1,-40 0"
+                android:fillColor="#FF6B35"
+                android:strokeColor="#E55A2B"
+                android:strokeWidth="2"/>
+                
+            <!-- Squash ball dots pattern -->
+            <path
+                android:name="dot1"
+                android:pathData="M16,16m-2,0a2,2 0,1 1,4 0a2,2 0,1 1,-4 0"
+                android:fillColor="#FFFFFF"/>
+                
+            <path
+                android:name="dot2"
+                android:pathData="M32,16m-2,0a2,2 0,1 1,4 0a2,2 0,1 1,-4 0"
+                android:fillColor="#FFFFFF"/>
+                
+            <path
+                android:name="dot3"
+                android:pathData="M24,28m-2,0a2,2 0,1 1,4 0a2,2 0,1 1,-4 0"
+                android:fillColor="#FFFFFF"/>
+                
+            <path
+                android:name="dot4"
+                android:pathData="M20,22m-1.5,0a1.5,1.5 0,1 1,3 0a1.5,1.5 0,1 1,-3 0"
+                android:fillColor="#FFFFFF"/>
+                
+            <path
+                android:name="dot5"
+                android:pathData="M28,22m-1.5,0a1.5,1.5 0,1 1,3 0a1.5,1.5 0,1 1,-3 0"
+                android:fillColor="#FFFFFF"/>
+        </vector>
+    </aapt:attr>
+    
+    <target android:name="squash_ball">
+        <aapt:attr name="android:animation">
+            <set android:ordering="sequentially">
+                <!-- Rotation animation -->
+                <objectAnimator
+                    android:propertyName="rotation"
+                    android:duration="2000"
+                    android:valueFrom="0"
+                    android:valueTo="360"
+                    android:repeatCount="infinite"
+                    android:interpolator="@android:interpolator/linear"/>
+                    
+                <!-- Bounce animation -->
+                <objectAnimator
+                    android:propertyName="scaleX"
+                    android:duration="500"
+                    android:valueFrom="1.0"
+                    android:valueTo="0.8"
+                    android:valueType="floatType"
+                    android:repeatCount="infinite"
+                    android:repeatMode="reverse"
+                    android:interpolator="@android:interpolator/accelerate_decelerate"/>
+                    
+                <objectAnimator
+                    android:propertyName="scaleY"
+                    android:duration="500"
+                    android:valueFrom="1.0"
+                    android:valueTo="0.8"
+                    android:valueType="floatType"
+                    android:repeatCount="infinite"
+                    android:repeatMode="reverse"
+                    android:interpolator="@android:interpolator/accelerate_decelerate"/>
+            </set>
+        </aapt:attr>
+    </target>
+    
+    <target android:name="dot1">
+        <aapt:attr name="android:animation">
+            <objectAnimator
+                android:propertyName="rotation"
+                android:duration="2000"
+                android:valueFrom="0"
+                android:valueTo="360"
+                android:repeatCount="infinite"
+                android:interpolator="@android:interpolator/linear"/>
+        </aapt:attr>
+    </target>
+    
+    <target android:name="dot2">
+        <aapt:attr name="android:animation">
+            <objectAnimator
+                android:propertyName="rotation"
+                android:duration="2000"
+                android:valueFrom="0"
+                android:valueTo="360"
+                android:repeatCount="infinite"
+                android:interpolator="@android:interpolator/linear"/>
+        </aapt:attr>
+    </target>
+    
+    <target android:name="dot3">
+        <aapt:attr name="android:animation">
+            <objectAnimator
+                android:propertyName="rotation"
+                android:duration="2000"
+                android:valueFrom="0"
+                android:valueTo="360"
+                android:repeatCount="infinite"
+                android:interpolator="@android:interpolator/linear"/>
+        </aapt:attr>
+    </target>
+    
+    <target android:name="dot4">
+        <aapt:attr name="android:animation">
+            <objectAnimator
+                android:propertyName="rotation"
+                android:duration="2000"
+                android:valueFrom="0"
+                android:valueTo="360"
+                android:repeatCount="infinite"
+                android:interpolator="@android:interpolator/linear"/>
+        </aapt:attr>
+    </target>
+    
+    <target android:name="dot5">
+        <aapt:attr name="android:animation">
+            <objectAnimator
+                android:propertyName="rotation"
+                android:duration="2000"
+                android:valueFrom="0"
+                android:valueTo="360"
+                android:repeatCount="infinite"
+                android:interpolator="@android:interpolator/linear"/>
+        </aapt:attr>
+    </target>
+</animated-vector>

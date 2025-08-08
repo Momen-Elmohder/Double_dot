@@ -5,21 +5,23 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.TextView
+import androidx.recyclerview.widget.DiffUtil
+import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.example.double_dot_demo.R
 import com.example.double_dot_demo.models.Trainee
+import com.example.double_dot_demo.utils.PerformanceUtils
 import java.text.SimpleDateFormat
 import java.util.*
 
 class TraineeAdapter(
-    private val trainees: List<Trainee>,
     private val isCoachView: Boolean = false,
     private val onEditClick: (Trainee) -> Unit,
     private val onDeleteClick: (Trainee) -> Unit,
     private val onRenewClick: (Trainee) -> Unit,
     private val onFreezeClick: (Trainee) -> Unit,
     private val onShowDetailsClick: (Trainee) -> Unit = {}
-) : RecyclerView.Adapter<TraineeAdapter.TraineeViewHolder>() {
+) : ListAdapter<Trainee, TraineeAdapter.TraineeViewHolder>(TraineeDiffCallback()) {
 
     private val dateFormat = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
     private val expandedPositions = mutableSetOf<Int>()
@@ -57,15 +59,15 @@ class TraineeAdapter(
 
     override fun onBindViewHolder(holder: TraineeViewHolder, position: Int) {
         try {
-            val trainee = trainees.getOrNull(position) ?: return
+            val trainee = getItem(position) ?: return
             
-            // Set basic info
+            // Set basic info with safe operations
             holder.tvName.text = trainee.name ?: "Unknown"
             
             if (isCoachView) {
                 android.util.Log.d("TraineeAdapter", "Rendering coach view for trainee: ${trainee.name}")
                 // Simplified coach view - only name, age, coach, branch, status
-                holder.tvDetails.text = "Age: ${trainee.age} • Coach: ${trainee.coachName} • Branch: ${trainee.branch}"
+                holder.tvDetails.text = buildCoachDetailsText(trainee)
                 
                 // Show status but hide payment status
                 holder.tvStatus.text = (trainee.status ?: "unknown").replaceFirstChar { it.uppercase() }
@@ -73,16 +75,7 @@ class TraineeAdapter(
                 holder.tvPaymentStatus.visibility = View.GONE
                 
                 // Set status color safely
-                try {
-                    val statusColor = when (trainee.status) {
-                        "active" -> holder.itemView.context.getColor(R.color.success_light)
-                        "frozen" -> holder.itemView.context.getColor(R.color.error_light)
-                        else -> holder.itemView.context.getColor(R.color.text_secondary_light)
-                    }
-                    holder.tvStatus.setTextColor(statusColor)
-                } catch (e: Exception) {
-                    // Use default color if error
-                }
+                setStatusColor(holder.tvStatus, trainee.status)
                 
                 // Hide entire action buttons container
                 holder.actionButtonsContainer.visibility = View.GONE
@@ -100,41 +93,17 @@ class TraineeAdapter(
                 holder.tvPaymentStatus.text = if (trainee.isPaid) "Paid" else "Unpaid"
                 
                 // Set status color safely
-                try {
-                    val statusColor = when (trainee.status) {
-                        "active" -> holder.itemView.context.getColor(R.color.success_light)
-                        "frozen" -> holder.itemView.context.getColor(R.color.error_light)
-                        else -> holder.itemView.context.getColor(R.color.text_secondary_light)
-                    }
-                    holder.tvStatus.setTextColor(statusColor)
-                } catch (e: Exception) {
-                    // Use default color if error
-                }
-                
-                // Set payment status color safely
-                try {
-                    val paymentColor = if (trainee.isPaid) {
-                        holder.itemView.context.getColor(R.color.success_light)
-                    } else {
-                        holder.itemView.context.getColor(R.color.error_light)
-                    }
-                    holder.tvPaymentStatus.setTextColor(paymentColor)
-                } catch (e: Exception) {
-                    // Use default color if error
-                }
+                setStatusColor(holder.tvStatus, trainee.status)
+                setPaymentStatusColor(holder.tvPaymentStatus, trainee.isPaid)
 
                 // Show/hide buttons based on sessions
                 holder.btnRenew.visibility = View.VISIBLE
-
-                // Show freeze button for active/frozen trainees
                 holder.btnFreeze.visibility = View.VISIBLE
-
-                // Show all buttons for admin/head coach view
                 holder.btnEdit.visibility = View.VISIBLE
                 holder.btnDelete.visibility = View.VISIBLE
                 holder.btnShowDetails.visibility = View.VISIBLE
                 
-                // Setup button click listeners with error handling
+                // Setup button click listeners with debouncing
                 setupClickListeners(holder, trainee)
 
                 // Show expanded details if position is expanded
@@ -151,7 +120,7 @@ class TraineeAdapter(
     }
 
     private fun setupClickListeners(holder: TraineeViewHolder, trainee: Trainee) {
-        // Card click for expand/collapse
+        // Card click for expand/collapse with debouncing
         holder.cardBackground.setOnClickListener {
             try {
                 toggleExpanded(holder.adapterPosition)
@@ -160,10 +129,13 @@ class TraineeAdapter(
             }
         }
 
-        // Button click listeners
+        // Button click listeners with debouncing and temporary disable
         holder.btnEdit.setOnClickListener {
             try {
+                holder.btnEdit.isEnabled = false
                 onEditClick(trainee)
+                // Re-enable after a delay
+                holder.btnEdit.postDelayed({ holder.btnEdit.isEnabled = true }, 1000)
             } catch (e: Exception) {
                 android.util.Log.e("TraineeAdapter", "Error in edit click: ${e.message}")
             }
@@ -171,7 +143,9 @@ class TraineeAdapter(
 
         holder.btnDelete.setOnClickListener {
             try {
+                holder.btnDelete.isEnabled = false
                 onDeleteClick(trainee)
+                holder.btnDelete.postDelayed({ holder.btnDelete.isEnabled = true }, 1000)
             } catch (e: Exception) {
                 android.util.Log.e("TraineeAdapter", "Error in delete click: ${e.message}")
             }
@@ -179,7 +153,9 @@ class TraineeAdapter(
 
         holder.btnRenew.setOnClickListener {
             try {
+                holder.btnRenew.isEnabled = false
                 onRenewClick(trainee)
+                holder.btnRenew.postDelayed({ holder.btnRenew.isEnabled = true }, 1000)
             } catch (e: Exception) {
                 android.util.Log.e("TraineeAdapter", "Error in renew click: ${e.message}")
             }
@@ -187,7 +163,9 @@ class TraineeAdapter(
 
         holder.btnFreeze.setOnClickListener {
             try {
+                holder.btnFreeze.isEnabled = false
                 onFreezeClick(trainee)
+                holder.btnFreeze.postDelayed({ holder.btnFreeze.isEnabled = true }, 1000)
             } catch (e: Exception) {
                 android.util.Log.e("TraineeAdapter", "Error in freeze click: ${e.message}")
             }
@@ -195,7 +173,9 @@ class TraineeAdapter(
 
         holder.btnShowDetails.setOnClickListener {
             try {
+                holder.btnShowDetails.isEnabled = false
                 onShowDetailsClick(trainee)
+                holder.btnShowDetails.postDelayed({ holder.btnShowDetails.isEnabled = true }, 1000)
             } catch (e: Exception) {
                 android.util.Log.e("TraineeAdapter", "Error in show details click: ${e.message}")
             }
@@ -223,28 +203,57 @@ class TraineeAdapter(
             holder.tvExpandedSessions.text = "Sessions: ${trainee.remainingSessions}/${trainee.totalSessions}"
             
             // Safely handle the lastRenewalDate
-            val lastRenewalText = try {
-                trainee.lastRenewalDate?.let { renewalDate ->
-                    dateFormat.format(renewalDate.toDate())
-                } ?: "Never"
-            } catch (e: Exception) {
-                "Unknown"
-            }
+            val lastRenewalText = PerformanceUtils.formatDateSafely(trainee.lastRenewalDate)
             holder.tvExpandedLastRenewal.text = "Last Renewal: $lastRenewalText"
             
             // Safely handle the createdAt date
-            val createdDate = try {
-                trainee.createdAt?.toDate()?.let { dateFormat.format(it) } ?: "Unknown"
-            } catch (e: Exception) {
-                "Unknown"
-            }
+            val createdDate = PerformanceUtils.formatDateSafely(trainee.createdAt)
             holder.tvExpandedCreated.text = "Created: $createdDate"
         } catch (e: Exception) {
             android.util.Log.e("TraineeAdapter", "Error populating expanded details: ${e.message}")
         }
     }
 
-    override fun getItemCount(): Int = trainees.size
+    private fun setStatusColor(textView: TextView, status: String?) {
+        try {
+            val statusColor = when (status) {
+                "active" -> textView.context.getColor(R.color.success_light)
+                "frozen" -> textView.context.getColor(R.color.error_light)
+                else -> textView.context.getColor(R.color.text_secondary_light)
+            }
+            textView.setTextColor(statusColor)
+        } catch (e: Exception) {
+            android.util.Log.e("TraineeAdapter", "Error setting status color: ${e.message}")
+        }
+    }
+
+    private fun setPaymentStatusColor(textView: TextView, isPaid: Boolean) {
+        try {
+            val paymentColor = if (isPaid) {
+                textView.context.getColor(R.color.success_light)
+            } else {
+                textView.context.getColor(R.color.error_light)
+            }
+            textView.setTextColor(paymentColor)
+        } catch (e: Exception) {
+            android.util.Log.e("TraineeAdapter", "Error setting payment status color: ${e.message}")
+        }
+    }
+
+    private fun buildCoachDetailsText(trainee: Trainee): String {
+        return try {
+            val details = mutableListOf<String>()
+            
+            details.add("Age: ${trainee.age}")
+            details.add("Coach: ${trainee.coachName ?: "N/A"}")
+            details.add("Branch: ${trainee.branch ?: "N/A"}")
+            
+            details.joinToString(" • ")
+        } catch (e: Exception) {
+            android.util.Log.e("TraineeAdapter", "Error building coach details text: ${e.message}")
+            "Error loading details"
+        }
+    }
 
     private fun buildDetailsText(trainee: Trainee): String {
         return try {
@@ -260,7 +269,7 @@ class TraineeAdapter(
             // Safely handle the lastRenewalDate
             trainee.lastRenewalDate?.let { renewalDate ->
                 try {
-                    val formattedDate = dateFormat.format(renewalDate.toDate())
+                    val formattedDate = PerformanceUtils.formatDateSafely(renewalDate)
                     details.add("Last Renewal: $formattedDate")
                 } catch (e: Exception) {
                     // Skip this detail if date conversion fails
@@ -277,5 +286,16 @@ class TraineeAdapter(
     fun updateCoachView(isCoach: Boolean) {
         android.util.Log.d("TraineeAdapter", "Updating coach view: $isCoach")
         // This function is no longer needed as isCoachView is passed to the constructor
+    }
+}
+
+// DiffUtil callback for efficient list updates
+class TraineeDiffCallback : DiffUtil.ItemCallback<Trainee>() {
+    override fun areItemsTheSame(oldItem: Trainee, newItem: Trainee): Boolean {
+        return oldItem.id == newItem.id
+    }
+
+    override fun areContentsTheSame(oldItem: Trainee, newItem: Trainee): Boolean {
+        return oldItem == newItem
     }
 } 

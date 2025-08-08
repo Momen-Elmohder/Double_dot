@@ -76,7 +76,6 @@ class CompletedTraineesFragment : Fragment() {
     private fun setupRecyclerView() {
         try {
             adapter = TraineeAdapter(
-                trainees = trainees,
                 onEditClick = { trainee ->
                     safeExecute {
                         showEditTraineeDialog(trainee)
