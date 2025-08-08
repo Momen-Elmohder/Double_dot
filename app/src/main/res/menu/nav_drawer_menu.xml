@@ -31,6 +31,11 @@
             android:id="@+id/nav_salary"
             android:icon="@drawable/ic_payment"
             android:title="Salary" />
+        
+        <item
+            android:id="@+id/nav_waiting_list"
+            android:icon="@drawable/ic_people"
+            android:title="Waiting List" />
     </group>
     
     <item android:title="Other">

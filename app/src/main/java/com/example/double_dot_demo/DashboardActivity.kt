@@ -18,6 +18,7 @@ import com.example.double_dot_demo.fragments.ExpensesFragment
 import com.example.double_dot_demo.fragments.TraineesFragment
 import com.example.double_dot_demo.fragments.CoachAttendanceFragment
 import com.example.double_dot_demo.fragments.SalaryFragment
+import com.example.double_dot_demo.fragments.WaitingListFragment
 import com.example.double_dot_demo.utils.RoleFixer
 import com.google.android.material.bottomnavigation.BottomNavigationView
 import com.google.android.material.appbar.MaterialToolbar
@@ -218,6 +219,13 @@ class DashboardActivity : AppCompatActivity(), NavigationView.OnNavigationItemSe
         if (salaryMenuItem != null) {
             // Only show "Salary" for admin and head coach
             salaryMenuItem.isVisible = (currentUserRole == "admin" || currentUserRole == "head_coach")
+        }
+        
+        // Set visibility for "Waiting List" menu item based on role
+        val waitingListMenuItem = menu.findItem(R.id.nav_waiting_list)
+        if (waitingListMenuItem != null) {
+            // Only show "Waiting List" for admin and head coach
+            waitingListMenuItem.isVisible = (currentUserRole == "admin" || currentUserRole == "head_coach")
         }
         
         // Hide expenses for admin role
@@ -632,6 +640,18 @@ class DashboardActivity : AppCompatActivity(), NavigationView.OnNavigationItemSe
                     loadFragment(SalaryFragment.newInstance())
                 } else {
                     showToast("You don't have permission to access salary information")
+                }
+            }
+            R.id.nav_waiting_list -> {
+                // Check role-based access for waiting list
+                if (currentUserRole == "head_coach" || currentUserRole == "admin") {
+                    loadFragment(WaitingListFragment().apply {
+                        arguments = Bundle().apply {
+                            putString("user_role", currentUserRole)
+                        }
+                    })
+                } else {
+                    showToast("You don't have permission to access the waiting list")
                 }
             }
             R.id.nav_sign_out -> {

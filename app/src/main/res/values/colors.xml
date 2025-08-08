@@ -26,6 +26,7 @@
     <color name="success_light">#4CAF50</color>
     <color name="error_light">#F44336</color>
     <color name="warning_light">#FF9800</color>
+    <color name="info_light">#2196F3</color>
     
     <!-- Dark Mode Colors - Black and White Theme -->
     <color name="primary_dark">#FFFFFF</color>
