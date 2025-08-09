@@ -19,5 +19,8 @@ data class Trainee(
     var attendanceSessions: Map<String, Boolean> = mapOf(), // sessionId -> isPresent
     val lastRenewalDate: Timestamp? = null,
     var createdAt: Timestamp = Timestamp.now(),
-    val updatedAt: Timestamp = Timestamp.now()
+    val updatedAt: Timestamp = Timestamp.now(),
+    // Schedule fields
+    val scheduleDays: List<String> = emptyList(), // Arabic day names
+    val scheduleTime: String = "" // Arabic time slot
 ) 

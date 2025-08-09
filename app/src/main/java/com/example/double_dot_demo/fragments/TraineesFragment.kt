@@ -18,6 +18,7 @@ import com.example.double_dot_demo.dialogs.RenewTraineeDialog
 import com.example.double_dot_demo.models.Trainee
 import com.example.double_dot_demo.utils.LoadingManager
 import com.example.double_dot_demo.utils.PerformanceUtils
+import com.example.double_dot_demo.utils.ScheduleManager
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
@@ -33,6 +34,7 @@ class TraineesFragment : Fragment() {
     private lateinit var firestore: FirebaseFirestore
     private lateinit var traineeAdapter: TraineeAdapter
     private lateinit var loadingManager: LoadingManager
+    private lateinit var scheduleManager: ScheduleManager
 
     private val trainees = mutableListOf<Trainee>()
     private val filteredTrainees = mutableListOf<Trainee>()
@@ -69,6 +71,9 @@ class TraineesFragment : Fragment() {
             
             // Initialize loading manager
             loadingManager = LoadingManager(binding.loadingOverlay.root)
+            
+            // Initialize schedule manager
+            scheduleManager = ScheduleManager()
             
             // Get current user role from arguments
             currentUserRole = arguments?.getString("user_role") ?: "coach"
@@ -502,6 +507,17 @@ class TraineesFragment : Fragment() {
             firestore.collection("trainees")
                 .add(trainee)
                 .addOnSuccessListener { documentReference ->
+                    val traineeWithId = trainee.copy(id = documentReference.id)
+                    
+                    // Add to schedule automatically
+                    scheduleManager.addTraineeToSchedule(traineeWithId) { scheduleSuccess ->
+                        if (scheduleSuccess) {
+                            android.util.Log.d("TraineesFragment", "Trainee added to schedule successfully")
+                        } else {
+                            android.util.Log.w("TraineesFragment", "Failed to add trainee to schedule")
+                        }
+                    }
+                    
                     progressDialog.dismiss()
                     showToast("Trainee added successfully")
                     
@@ -524,9 +540,32 @@ class TraineesFragment : Fragment() {
             
             val progressDialog = showLoadingDialog()
             
+            // Get the original trainee data to compare schedule changes
+            val originalTrainee = trainees.find { it.id == trainee.id }
+            
             firestore.collection("trainees").document(trainee.id)
                 .set(trainee)
                 .addOnSuccessListener {
+                    // Update schedule if needed
+                    if (originalTrainee != null) {
+                        scheduleManager.updateTraineeInSchedule(originalTrainee, trainee) { scheduleSuccess ->
+                            if (scheduleSuccess) {
+                                android.util.Log.d("TraineesFragment", "Trainee schedule updated successfully")
+                            } else {
+                                android.util.Log.w("TraineesFragment", "Failed to update trainee schedule")
+                            }
+                        }
+                    } else {
+                        // If we don't have original data, just add to schedule
+                        scheduleManager.addTraineeToSchedule(trainee) { scheduleSuccess ->
+                            if (scheduleSuccess) {
+                                android.util.Log.d("TraineesFragment", "Trainee added to schedule successfully")
+                            } else {
+                                android.util.Log.w("TraineesFragment", "Failed to add trainee to schedule")
+                            }
+                        }
+                    }
+                    
                     progressDialog.dismiss()
                     showToast("Trainee updated successfully")
                     
@@ -554,6 +593,15 @@ class TraineesFragment : Fragment() {
             firestore.collection("trainees").document(trainee.id)
                 .delete()
                 .addOnSuccessListener {
+                    // Remove from schedule automatically
+                    scheduleManager.removeTraineeFromSchedule(trainee) { scheduleSuccess ->
+                        if (scheduleSuccess) {
+                            android.util.Log.d("TraineesFragment", "Trainee removed from schedule successfully")
+                        } else {
+                            android.util.Log.w("TraineesFragment", "Failed to remove trainee from schedule")
+                        }
+                    }
+                    
                     progressDialog.dismiss()
                     android.util.Log.d("TraineesFragment", "Trainee deleted successfully from Firestore: ${trainee.name}")
                     showToast("Trainee deleted successfully")
@@ -642,6 +690,30 @@ class TraineesFragment : Fragment() {
             firestore.collection("trainees").document(trainee.id)
                 .update("status", newStatus)
                 .addOnSuccessListener {
+                    // Handle schedule changes based on status
+                    if (newStatus == "frozen") {
+                        // Remove from schedule when frozen
+                        scheduleManager.removeTraineeByStatus(trainee.id, trainee.branch) { scheduleSuccess ->
+                            if (scheduleSuccess) {
+                                android.util.Log.d("TraineesFragment", "Frozen trainee removed from schedule")
+                            } else {
+                                android.util.Log.w("TraineesFragment", "Failed to remove frozen trainee from schedule")
+                            }
+                        }
+                    } else {
+                        // Add back to schedule when unfrozen (if they have schedule info)
+                        val updatedTrainee = trainee.copy(status = newStatus)
+                        if (updatedTrainee.scheduleDays.isNotEmpty() && updatedTrainee.scheduleTime.isNotEmpty()) {
+                            scheduleManager.addTraineeToSchedule(updatedTrainee) { scheduleSuccess ->
+                                if (scheduleSuccess) {
+                                    android.util.Log.d("TraineesFragment", "Unfrozen trainee added back to schedule")
+                                } else {
+                                    android.util.Log.w("TraineesFragment", "Failed to add unfrozen trainee to schedule")
+                                }
+                            }
+                        }
+                    }
+                    
                     progressDialog.dismiss()
                     showToast("Trainee ${if (newStatus == "frozen") "frozen" else "unfrozen"}")
                 }

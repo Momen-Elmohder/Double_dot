@@ -57,6 +57,8 @@ class AddTraineeDialog(
     }
 
     private fun setupViews() {
+        setupScheduleTimeDropdown()
+        
         binding.btnCancel.setOnClickListener {
             cleanup()
             dialog.dismiss()
@@ -159,6 +161,12 @@ class AddTraineeDialog(
         binding.actvStatus.setText(statuses[0], false) // Set default to first option
     }
 
+    private fun setupScheduleTimeDropdown() {
+        val timeSlots = listOf("٤", "٥", "٦", "٧", "٨", "٩", "١٠")
+        val adapter = ArrayAdapter(context, android.R.layout.simple_dropdown_item_1line, timeSlots)
+        binding.actvScheduleTime.setAdapter(adapter)
+    }
+
     private fun showDatePicker(editText: com.google.android.material.textfield.TextInputEditText) {
         val datePickerDialog = DatePickerDialog(
             context,
@@ -183,7 +191,17 @@ class AddTraineeDialog(
         binding.etTotalSessions.setText(trainee.totalSessions.toString())
         binding.actvCoach.setText(trainee.coachName)
         binding.etMonthlyFee.setText(trainee.monthlyFee.toString())
-        // Removed switchPaid since trainees are automatically paid
+        binding.actvScheduleTime.setText(trainee.scheduleTime)
+        
+        // Set schedule days checkboxes
+        val selectedDays = trainee.scheduleDays
+        binding.cbSunday.isChecked = selectedDays.contains("الأحد")
+        binding.cbMonday.isChecked = selectedDays.contains("الإثنين")
+        binding.cbTuesday.isChecked = selectedDays.contains("الثلاثاء")
+        binding.cbWednesday.isChecked = selectedDays.contains("الأربعاء")
+        binding.cbThursday.isChecked = selectedDays.contains("الخميس")
+        binding.cbFriday.isChecked = selectedDays.contains("الجمعة")
+        binding.cbSaturday.isChecked = selectedDays.contains("السبت")
     }
 
     private fun validateInputs(): Boolean {
@@ -254,6 +272,24 @@ class AddTraineeDialog(
             return false
         }
 
+        // Validate schedule time
+        val scheduleTime = binding.actvScheduleTime.text.toString().trim()
+        if (scheduleTime.isEmpty()) {
+            binding.tilScheduleTime.error = "Please select a training time"
+            return false
+        }
+
+        // Validate at least one day is selected
+        val hasSelectedDay = binding.cbSunday.isChecked || binding.cbMonday.isChecked ||
+                binding.cbTuesday.isChecked || binding.cbWednesday.isChecked ||
+                binding.cbThursday.isChecked || binding.cbFriday.isChecked ||
+                binding.cbSaturday.isChecked
+        
+        if (!hasSelectedDay) {
+            Toast.makeText(context, "Please select at least one training day", Toast.LENGTH_SHORT).show()
+            return false
+        }
+
         return true
     }
 
@@ -269,6 +305,18 @@ class AddTraineeDialog(
         val monthlyFee = binding.etMonthlyFee.text.toString().toInt()
         val isPaid = true // Trainees are automatically paid
         val paymentAmount = if (isPaid) monthlyFee.toDouble() else 0.0
+        
+        // Get schedule data
+        val scheduleTime = binding.actvScheduleTime.text.toString().trim()
+        val selectedDays = mutableListOf<String>()
+        
+        if (binding.cbSunday.isChecked) selectedDays.add("الأحد")
+        if (binding.cbMonday.isChecked) selectedDays.add("الإثنين")
+        if (binding.cbTuesday.isChecked) selectedDays.add("الثلاثاء")
+        if (binding.cbWednesday.isChecked) selectedDays.add("الأربعاء")
+        if (binding.cbThursday.isChecked) selectedDays.add("الخميس")
+        if (binding.cbFriday.isChecked) selectedDays.add("الجمعة")
+        if (binding.cbSaturday.isChecked) selectedDays.add("السبت")
 
         return Trainee(
             id = trainee?.id ?: "",
@@ -283,7 +331,9 @@ class AddTraineeDialog(
             monthlyFee = monthlyFee,
             paymentAmount = paymentAmount,
             isPaid = isPaid,
-            status = status
+            status = status,
+            scheduleDays = selectedDays,
+            scheduleTime = scheduleTime
         )
     }
 

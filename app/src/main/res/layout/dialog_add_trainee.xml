@@ -184,7 +184,7 @@
             android:id="@+id/tilMonthlyFee"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="24dp"
+            android:layout_marginBottom="16dp"
             android:hint="Monthly Fee"
             app:startIconDrawable="@drawable/ic_person"
             app:startIconTint="?attr/colorPrimary"
@@ -201,6 +201,123 @@
                 android:textColor="?attr/colorOnSurface" />
 
         </com.google.android.material.textfield.TextInputLayout>
+
+        <!-- Schedule Time Selection -->
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/tilScheduleTime"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            android:hint="Training Time / وقت التدريب"
+            app:startIconDrawable="@drawable/ic_calendar"
+            app:startIconTint="?attr/colorPrimary"
+            app:boxStrokeColor="?attr/colorPrimary"
+            app:hintTextColor="?attr/colorPrimary"
+            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu">
+
+            <AutoCompleteTextView
+                android:id="@+id/actvScheduleTime"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="none"
+                android:textColor="?attr/colorOnSurface" />
+
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <!-- Schedule Days Selection -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Training Days / أيام التدريب"
+            android:textSize="16sp"
+            android:textColor="?attr/colorPrimary"
+            android:layout_marginBottom="8dp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="8dp">
+
+            <CheckBox
+                android:id="@+id/cbSunday"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="الأحد"
+                android:textSize="12sp"
+                android:buttonTint="?attr/colorPrimary"
+                android:textColor="?attr/colorOnSurface" />
+
+            <CheckBox
+                android:id="@+id/cbMonday"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="الإثنين"
+                android:textSize="12sp"
+                android:buttonTint="?attr/colorPrimary"
+                android:textColor="?attr/colorOnSurface" />
+
+            <CheckBox
+                android:id="@+id/cbTuesday"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="الثلاثاء"
+                android:textSize="12sp"
+                android:buttonTint="?attr/colorPrimary"
+                android:textColor="?attr/colorOnSurface" />
+
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="24dp">
+
+            <CheckBox
+                android:id="@+id/cbWednesday"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="الأربعاء"
+                android:textSize="12sp"
+                android:buttonTint="?attr/colorPrimary"
+                android:textColor="?attr/colorOnSurface" />
+
+            <CheckBox
+                android:id="@+id/cbThursday"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="الخميس"
+                android:textSize="12sp"
+                android:buttonTint="?attr/colorPrimary"
+                android:textColor="?attr/colorOnSurface" />
+
+            <CheckBox
+                android:id="@+id/cbFriday"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="الجمعة"
+                android:textSize="12sp"
+                android:buttonTint="?attr/colorPrimary"
+                android:textColor="?attr/colorOnSurface" />
+
+            <CheckBox
+                android:id="@+id/cbSaturday"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="السبت"
+                android:textSize="12sp"
+                android:buttonTint="?attr/colorPrimary"
+                android:textColor="?attr/colorOnSurface" />
+
+        </LinearLayout>
 
         <!-- Action Buttons -->
         <LinearLayout

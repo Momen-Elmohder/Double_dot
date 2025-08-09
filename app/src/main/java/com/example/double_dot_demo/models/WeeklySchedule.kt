@@ -41,6 +41,45 @@ data class WeeklySchedule(
             return if (index >= 0) TIME_SLOTS[index] else englishTime
         }
     }
+    
+    // Helper functions for trainee management
+    fun addTrainee(traineeId: String, days: List<String>, time: String): WeeklySchedule {
+        val mutableSchedule = scheduleData.toMutableMap()
+        
+        for (day in days) {
+            if (day in DAYS_OF_WEEK && time in TIME_SLOTS) {
+                val daySchedule = mutableSchedule[day]?.toMutableMap() ?: mutableMapOf()
+                val timeTrainees = daySchedule[time]?.toMutableList() ?: mutableListOf()
+                
+                if (!timeTrainees.contains(traineeId)) {
+                    timeTrainees.add(traineeId)
+                    daySchedule[time] = timeTrainees
+                    mutableSchedule[day] = daySchedule
+                }
+            }
+        }
+        
+        return this.copy(scheduleData = mutableSchedule)
+    }
+    
+    fun removeTrainee(traineeId: String): WeeklySchedule {
+        val mutableSchedule = scheduleData.toMutableMap()
+        
+        for ((day, daySchedule) in mutableSchedule) {
+            val mutableDaySchedule = daySchedule.toMutableMap()
+            for ((time, trainees) in mutableDaySchedule) {
+                val updatedTrainees = trainees.filter { it != traineeId }
+                mutableDaySchedule[time] = updatedTrainees
+            }
+            mutableSchedule[day] = mutableDaySchedule
+        }
+        
+        return this.copy(scheduleData = mutableSchedule)
+    }
+    
+    fun updateTrainee(traineeId: String, newDays: List<String>, newTime: String): WeeklySchedule {
+        return this.removeTrainee(traineeId).addTrainee(traineeId, newDays, newTime)
+    }
 }
 
 data class ScheduleCell(
