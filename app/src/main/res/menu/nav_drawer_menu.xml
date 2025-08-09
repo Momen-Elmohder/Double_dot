@@ -36,6 +36,11 @@
             android:id="@+id/nav_waiting_list"
             android:icon="@drawable/ic_people"
             android:title="Waiting List" />
+        
+        <item
+            android:id="@+id/nav_weekly_schedule"
+            android:icon="@drawable/ic_calendar"
+            android:title="جدول الأسبوع" />
     </group>
     
     <item android:title="Other">

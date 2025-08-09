@@ -60,7 +60,7 @@ class AddWaitingListPlayerDialog : DialogFragment() {
     }
 
     private fun setupBranchSpinner() {
-        val branches = listOf("المدينة الرياضية", "نادي اليخت", "نادي التوكيلات")
+        val branches = listOf("نادي التوكيلات", "نادي اليخت", "المدينة الرياضية")
         val branchAdapter = ArrayAdapter(requireContext(), android.R.layout.simple_dropdown_item_1line, branches)
         binding.actvBranch.setAdapter(branchAdapter)
         

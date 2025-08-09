@@ -39,7 +39,7 @@ class WaitingListFragment : Fragment() {
     private var currentUserId: String = ""
     private var currentUserName: String = ""
     
-    private val branches = listOf("All Branches", "Branch A", "Branch B", "Branch C", "Branch D")
+    private val branches = listOf("All Branches", "نادي التوكيلات", "نادي اليخت", "المدينة الرياضية")
     private val statuses = listOf("All Status", "waiting", "contacted", "enrolled", "rejected")
     private val sortOptions = listOf("Earliest Added", "Latest Added", "Name A-Z", "Name Z-A", "Age Low-High", "Age High-Low")
     

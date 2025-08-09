@@ -146,7 +146,7 @@ class AddTraineeDialog(
     }
 
     private fun setupBranchDropdown() {
-        val branches = listOf("المدينة الرياضية", "نادي اليخت", "نادي التوكيلات")
+        val branches = listOf("نادي التوكيلات", "نادي اليخت", "المدينة الرياضية")
         val adapter = ArrayAdapter(context, android.R.layout.simple_dropdown_item_1line, branches)
         binding.actvBranch.setAdapter(adapter)
         binding.actvBranch.setText(branches[0], false) // Set default to first option

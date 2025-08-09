@@ -203,7 +203,7 @@ class TraineesFragment : Fragment() {
         }
 
         // Setup branch dropdown
-        val branchOptions = listOf("All Branches", "المدينة الرياضية", "نادي اليخت", "نادي التوكيلات")
+        val branchOptions = listOf("All Branches", "نادي التوكيلات", "نادي اليخت", "المدينة الرياضية")
         val branchAdapter = ArrayAdapter(requireContext(), android.R.layout.simple_dropdown_item_1line, branchOptions)
         binding.actvBranch.setAdapter(branchAdapter)
         binding.actvBranch.setText("All Branches", false)

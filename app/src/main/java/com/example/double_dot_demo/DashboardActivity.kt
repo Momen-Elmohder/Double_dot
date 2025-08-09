@@ -19,6 +19,7 @@ import com.example.double_dot_demo.fragments.TraineesFragment
 import com.example.double_dot_demo.fragments.CoachAttendanceFragment
 import com.example.double_dot_demo.fragments.SalaryFragment
 import com.example.double_dot_demo.fragments.WaitingListFragment
+import com.example.double_dot_demo.fragments.WeeklyScheduleFragment
 import com.example.double_dot_demo.utils.RoleFixer
 import com.google.android.material.bottomnavigation.BottomNavigationView
 import com.google.android.material.appbar.MaterialToolbar
@@ -226,6 +227,13 @@ class DashboardActivity : AppCompatActivity(), NavigationView.OnNavigationItemSe
         if (waitingListMenuItem != null) {
             // Only show "Waiting List" for admin and head coach
             waitingListMenuItem.isVisible = (currentUserRole == "admin" || currentUserRole == "head_coach")
+        }
+        
+        // Set visibility for "Weekly Schedule" menu item based on role
+        val weeklyScheduleMenuItem = menu.findItem(R.id.nav_weekly_schedule)
+        if (weeklyScheduleMenuItem != null) {
+            // Only show "Weekly Schedule" for admin and head coach
+            weeklyScheduleMenuItem.isVisible = (currentUserRole == "admin" || currentUserRole == "head_coach")
         }
         
         // Hide expenses for admin role
@@ -652,6 +660,18 @@ class DashboardActivity : AppCompatActivity(), NavigationView.OnNavigationItemSe
                     })
                 } else {
                     showToast("You don't have permission to access the waiting list")
+                }
+            }
+            R.id.nav_weekly_schedule -> {
+                // Check role-based access for weekly schedule
+                if (currentUserRole == "head_coach" || currentUserRole == "admin") {
+                    loadFragment(WeeklyScheduleFragment().apply {
+                        arguments = Bundle().apply {
+                            putString("user_role", currentUserRole)
+                        }
+                    })
+                } else {
+                    showToast("You don't have permission to access the weekly schedule")
                 }
             }
             R.id.nav_sign_out -> {
