@@ -1,55 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
-    
     <group android:checkableBehavior="single">
-        <item
-            android:id="@+id/nav_account"
-            android:icon="@drawable/ic_person"
-            android:title="Account" />
-        
-        <item
-            android:id="@+id/nav_settings"
-            android:icon="@drawable/ic_settings"
-            android:title="Settings" />
-        
-        <item
-            android:id="@+id/nav_expenses"
-            android:icon="@drawable/ic_payment"
-            android:title="Expenses" />
-        
-        <item
-            android:id="@+id/nav_completed"
-            android:icon="@drawable/ic_completed"
-            android:title="Completed" />
-        
-        <item
-            android:id="@+id/nav_coach_attendance"
-            android:icon="@drawable/ic_people"
-            android:title="Coach Attendance" />
-        
-        <item
-            android:id="@+id/nav_salary"
-            android:icon="@drawable/ic_payment"
-            android:title="Salary" />
-        
-        <item
-            android:id="@+id/nav_waiting_list"
-            android:icon="@drawable/ic_people"
-            android:title="Waiting List" />
-        
-        <item
-            android:id="@+id/nav_weekly_schedule"
-            android:icon="@drawable/ic_calendar"
-            android:title="جدول الأسبوع" />
+        <item android:id="@+id/nav_coach_attendance" android:title="Coach Attendance" />
+        <item android:id="@+id/nav_salary" android:title="Salaries" />
+        <item android:id="@+id/nav_completed" android:title="Completed" />
+        <item android:id="@+id/nav_waiting_list" android:title="Waiting List" />
+        <item android:id="@+id/nav_weekly_schedule" android:title="Weekly Schedule" />
+        <item android:id="@+id/nav_expenses" android:title="Expenses" />
+        <item android:id="@+id/nav_account" android:title="My account" />
+        <item android:id="@+id/nav_sign_out" android:title="Sign out" />
     </group>
-    
-    <item android:title="Other">
-        <menu>
-            <item
-                android:id="@+id/nav_sign_out"
-                android:icon="@drawable/ic_logout"
-                android:title="Sign Out" />
-        </menu>
-    </item>
-    
 </menu> 

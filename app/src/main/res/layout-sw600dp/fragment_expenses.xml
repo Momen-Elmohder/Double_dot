@@ -4,13 +4,13 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:padding="16dp">
+    android:padding="24dp">
 
-    <!-- Header with Month Selector -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
+        android:gravity="center_vertical"
         android:layout_marginBottom="16dp">
 
         <TextView
@@ -18,7 +18,7 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:text="Expenses"
-            android:textSize="20sp"
+            android:textSize="26sp"
             android:textStyle="bold"
             android:textColor="?attr/colorOnSurface" />
 
@@ -26,33 +26,29 @@
             android:id="@+id/btnExport"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Export"
-            android:textSize="12sp"
-            android:layout_marginEnd="8dp"
-            style="@style/Widget.Material3.Button.OutlinedButton" />
+            android:text="Export" />
 
         <com.google.android.material.textfield.TextInputLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:hint="Month"
-            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu">
+            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+            android:layout_marginStart="12dp">
 
             <AutoCompleteTextView
                 android:id="@+id/actvMonth"
-                android:layout_width="120dp"
+                android:layout_width="180dp"
                 android:layout_height="wrap_content"
                 android:inputType="none" />
         </com.google.android.material.textfield.TextInputLayout>
-
     </LinearLayout>
 
-    <!-- Totals Summary -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
         android:background="?attr/colorSurfaceVariant"
-        android:padding="12dp"
+        android:padding="16dp"
         android:layout_marginBottom="16dp">
 
         <TextView
@@ -60,7 +56,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="Total Expenses: $0.00"
-            android:textSize="14sp"
+            android:textSize="16sp"
             android:textColor="@color/error_light"
             android:layout_marginBottom="4dp" />
 
@@ -69,7 +65,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="Total Income: $0.00"
-            android:textSize="14sp"
+            android:textSize="16sp"
             android:textColor="@color/success_light"
             android:layout_marginBottom="4dp" />
 
@@ -78,28 +74,16 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="Net: $0.00"
-            android:textSize="16sp"
+            android:textSize="18sp"
             android:textStyle="bold"
             android:textColor="?attr/colorOnSurface" />
-
     </LinearLayout>
 
-    <!-- RecyclerView for expenses -->
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/recyclerView"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1" />
 
-    <!-- Floating Action Button -->
-    <com.google.android.material.floatingactionbutton.FloatingActionButton
-        android:id="@+id/fabAddExpense"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="end|bottom"
-        android:layout_margin="16dp"
-        android:src="@drawable/ic_add"
-        app:backgroundTint="?attr/colorPrimary"
-        app:tint="?attr/colorOnPrimary" />
+</LinearLayout>
 
-</LinearLayout> 

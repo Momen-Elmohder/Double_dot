@@ -39,6 +39,8 @@ class AddExpenseDialog : DialogFragment() {
 
     // Data lists
     private val branches = mutableListOf<String>()
+    private val defaultBranches = listOf("نادي التوكيلات", "نادي اليخت", "المدينة الرياضية")
+    private var branchAdapter: ArrayAdapter<String>? = null
     private var currentUser: Employee? = null
 
     companion object {
@@ -102,11 +104,9 @@ class AddExpenseDialog : DialogFragment() {
             spinnerType.adapter = typeAdapter
 
             // Branch spinner
-            val branchAdapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, branches)
-            branchAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+            branchAdapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, branches)
+            branchAdapter?.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
             spinnerBranch.adapter = branchAdapter
-
-            android.util.Log.d("AddExpenseDialog", "Spinners setup completed")
         } catch (e: Exception) {
             android.util.Log.e("AddExpenseDialog", "Error setting up spinners: ${e.message}")
         }
@@ -120,11 +120,7 @@ class AddExpenseDialog : DialogFragment() {
                 }
             }
 
-            btnCancel.setOnClickListener {
-                dismiss()
-            }
-
-            android.util.Log.d("AddExpenseDialog", "Buttons setup completed")
+            btnCancel.setOnClickListener { dismiss() }
         } catch (e: Exception) {
             android.util.Log.e("AddExpenseDialog", "Error setting up buttons: ${e.message}")
         }
@@ -134,44 +130,94 @@ class AddExpenseDialog : DialogFragment() {
         try {
             loadBranches()
             loadCurrentUser()
-            android.util.Log.d("AddExpenseDialog", "Data loading initiated")
         } catch (e: Exception) {
             android.util.Log.e("AddExpenseDialog", "Error loading data: ${e.message}")
         }
     }
 
+    private fun updateBranchAdapter() {
+        try {
+            // Ensure defaults present and unique
+            val set = LinkedHashSet<String>()
+            set.addAll(defaultBranches)
+            set.addAll(branches)
+            branches.clear()
+            branches.addAll(set)
+            branchAdapter?.notifyDataSetChanged()
+            if (spinnerBranch.selectedItemPosition == -1 && branches.isNotEmpty()) {
+                spinnerBranch.setSelection(0)
+            }
+        } catch (_: Exception) {}
+    }
+
     private fun loadBranches() {
         try {
-            // Load branches from trainees collection
+            // Start with defaults
+            branches.clear()
+            branches.addAll(defaultBranches)
+            updateBranchAdapter()
+
+            // From trainees collection
             db.collection("trainees")
                 .get()
                 .addOnSuccessListener { snapshot ->
                     try {
-                        branches.clear()
-                        val branchSet = mutableSetOf<String>()
-                        
+                        val set = LinkedHashSet(branches)
                         for (document in snapshot) {
                             val branch = document.getString("branch")
-                            if (!branch.isNullOrEmpty()) {
-                                branchSet.add(branch)
-                            }
+                            if (!branch.isNullOrEmpty()) set.add(branch)
                         }
-                        
-                        branches.addAll(branchSet.sorted())
-                        
-                        // Update spinner
-                        (spinnerBranch.adapter as? ArrayAdapter<*>)?.notifyDataSetChanged()
-                        
-                        android.util.Log.d("AddExpenseDialog", "Loaded ${branches.size} branches")
+                        branches.clear(); branches.addAll(set)
+                        updateBranchAdapter()
                     } catch (e: Exception) {
-                        android.util.Log.e("AddExpenseDialog", "Error processing branches: ${e.message}")
+                        android.util.Log.e("AddExpenseDialog", "Error processing trainees branches: ${e.message}")
                     }
                 }
                 .addOnFailureListener { e ->
-                    android.util.Log.e("AddExpenseDialog", "Error loading branches: ${e.message}")
+                    android.util.Log.e("AddExpenseDialog", "Error loading trainees branches: ${e.message}")
+                }
+
+            // From employees collection
+            db.collection("employees")
+                .get()
+                .addOnSuccessListener { snapshot ->
+                    try {
+                        val set = LinkedHashSet(branches)
+                        for (document in snapshot) {
+                            val branch = document.getString("branch")
+                            if (!branch.isNullOrEmpty()) set.add(branch)
+                        }
+                        branches.clear(); branches.addAll(set)
+                        updateBranchAdapter()
+                    } catch (e: Exception) {
+                        android.util.Log.e("AddExpenseDialog", "Error processing employee branches: ${e.message}")
+                    }
+                }
+                .addOnFailureListener { e ->
+                    android.util.Log.e("AddExpenseDialog", "Error loading employee branches: ${e.message}")
+                }
+
+            // From existing expenses (for any additional branches)
+            db.collection("expenses")
+                .get()
+                .addOnSuccessListener { snapshot ->
+                    try {
+                        val set = LinkedHashSet(branches)
+                        for (document in snapshot) {
+                            val branch = document.getString("branch")
+                            if (!branch.isNullOrEmpty()) set.add(branch)
+                        }
+                        branches.clear(); branches.addAll(set)
+                        updateBranchAdapter()
+                    } catch (e: Exception) {
+                        android.util.Log.e("AddExpenseDialog", "Error processing expense branches: ${e.message}")
+                    }
+                }
+                .addOnFailureListener { e ->
+                    android.util.Log.e("AddExpenseDialog", "Error loading expense branches: ${e.message}")
                 }
         } catch (e: Exception) {
-            android.util.Log.e("AddExpenseDialog", "Error setting up branches listener: ${e.message}")
+            android.util.Log.e("AddExpenseDialog", "Error setting up branches: ${e.message}")
         }
     }
 
@@ -179,7 +225,6 @@ class AddExpenseDialog : DialogFragment() {
         try {
             val currentUserId = auth.currentUser?.uid
             if (currentUserId != null) {
-                // Load current user from employees collection
                 db.collection("employees")
                     .document(currentUserId)
                     .get()
@@ -189,31 +234,24 @@ class AddExpenseDialog : DialogFragment() {
                                 currentUser = document.toObject(Employee::class.java)?.copy(id = document.id)
                                 currentUser?.let { user ->
                                     tvAddedBy.text = "Added By: ${user.name}"
-                                    android.util.Log.d("AddExpenseDialog", "Current user loaded: ${user.name}")
                                 }
                             } else {
-                                // If user not found in employees, use Firebase Auth display name
                                 val displayName = auth.currentUser?.displayName ?: "Unknown User"
                                 tvAddedBy.text = "Added By: $displayName"
-                                android.util.Log.d("AddExpenseDialog", "Using Firebase Auth display name: $displayName")
                             }
                         } catch (e: Exception) {
-                            android.util.Log.e("AddExpenseDialog", "Error processing current user: ${e.message}")
                             val displayName = auth.currentUser?.displayName ?: "Unknown User"
                             tvAddedBy.text = "Added By: $displayName"
                         }
                     }
-                    .addOnFailureListener { e ->
-                        android.util.Log.e("AddExpenseDialog", "Error loading current user: ${e.message}")
+                    .addOnFailureListener { _ ->
                         val displayName = auth.currentUser?.displayName ?: "Unknown User"
                         tvAddedBy.text = "Added By: $displayName"
                     }
             } else {
                 tvAddedBy.text = "Added By: Unknown User"
-                android.util.Log.w("AddExpenseDialog", "No current user found")
             }
         } catch (e: Exception) {
-            android.util.Log.e("AddExpenseDialog", "Error setting up current user: ${e.message}")
             tvAddedBy.text = "Added By: Unknown User"
         }
     }
@@ -222,7 +260,6 @@ class AddExpenseDialog : DialogFragment() {
         try {
             var isValid = true
 
-            // Validate amount
             val amountText = etAmount.text.toString().trim()
             if (amountText.isEmpty()) {
                 tilAmount.error = "Amount is required"
@@ -242,7 +279,6 @@ class AddExpenseDialog : DialogFragment() {
                 }
             }
 
-            // Validate reason
             val reason = etReason.text.toString().trim()
             if (reason.isEmpty()) {
                 tilReason.error = "Reason is required"
@@ -251,7 +287,6 @@ class AddExpenseDialog : DialogFragment() {
                 tilReason.error = null
             }
 
-            // Validate branch selection
             if (spinnerBranch.selectedItemPosition == -1 || branches.isEmpty()) {
                 android.widget.Toast.makeText(context, "Please select a branch", android.widget.Toast.LENGTH_SHORT).show()
                 isValid = false
@@ -271,13 +306,12 @@ class AddExpenseDialog : DialogFragment() {
             val type = spinnerType.selectedItem.toString()
             val branch = spinnerBranch.selectedItem.toString()
             
-            // Get current user info
             val currentUserId = auth.currentUser?.uid ?: ""
             val currentUserName = currentUser?.name ?: auth.currentUser?.displayName ?: "Unknown User"
 
             val expense = Expense(
                 id = "",
-                title = reason, // Use reason as title
+                title = reason,
                 amount = amount,
                 type = type,
                 category = "Manual Entry",
@@ -289,43 +323,24 @@ class AddExpenseDialog : DialogFragment() {
                 isAutoCalculated = false
             )
 
-            // Save to Firebase
             db.collection("expenses")
                 .add(expense)
                 .addOnSuccessListener { documentReference ->
                     try {
                         val expenseWithId = expense.copy(id = documentReference.id)
                         onExpenseAdded?.invoke(expenseWithId)
-                        
-                        android.widget.Toast.makeText(
-                            context,
-                            "$type added successfully",
-                            android.widget.Toast.LENGTH_SHORT
-                        ).show()
-                        
+                        android.widget.Toast.makeText(context, "$type added successfully", android.widget.Toast.LENGTH_SHORT).show()
                         dismiss()
-                        
-                        android.util.Log.d("AddExpenseDialog", "Expense added successfully with ID: ${documentReference.id}")
-                    } catch (e: Exception) {
-                        android.util.Log.e("AddExpenseDialog", "Error processing success: ${e.message}")
-                    }
+                    } catch (_: Exception) {}
                 }
                 .addOnFailureListener { e ->
                     android.util.Log.e("AddExpenseDialog", "Error adding expense: ${e.message}")
-                    android.widget.Toast.makeText(
-                        context,
-                        "Error adding expense: ${e.message}",
-                        android.widget.Toast.LENGTH_SHORT
-                    ).show()
+                    android.widget.Toast.makeText(context, "Error adding expense: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
                 }
 
         } catch (e: Exception) {
             android.util.Log.e("AddExpenseDialog", "Error adding expense: ${e.message}")
-            android.widget.Toast.makeText(
-                context,
-                "Error adding expense",
-                android.widget.Toast.LENGTH_SHORT
-            ).show()
+            android.widget.Toast.makeText(context, "Error adding expense", android.widget.Toast.LENGTH_SHORT).show()
         }
     }
 } 

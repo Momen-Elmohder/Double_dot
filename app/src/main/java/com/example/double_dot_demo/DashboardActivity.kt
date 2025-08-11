@@ -5,6 +5,9 @@ import android.os.Bundle
 import android.view.Menu
 import android.view.MenuItem
 import android.view.View
+import android.view.Gravity
+import android.widget.FrameLayout
+import android.widget.ImageView
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
@@ -21,6 +24,8 @@ import com.example.double_dot_demo.fragments.SalaryFragment
 import com.example.double_dot_demo.fragments.WaitingListFragment
 import com.example.double_dot_demo.fragments.WeeklyScheduleFragment
 import com.example.double_dot_demo.utils.RoleFixer
+import com.example.double_dot_demo.utils.Role
+import com.example.double_dot_demo.utils.Permissions
 import com.google.android.material.bottomnavigation.BottomNavigationView
 import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.navigation.NavigationView
@@ -35,43 +40,49 @@ class DashboardActivity : AppCompatActivity(), NavigationView.OnNavigationItemSe
     private lateinit var drawerLayout: DrawerLayout
     private lateinit var navigationView: NavigationView
     private var currentUserRole: String = ""
+    private val roleEnum: Role get() = Role.from(currentUserRole)
+    private var watermarkView: ImageView? = null
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
-        // Set up global exception handler
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
             android.util.Log.e("DashboardActivity", "Uncaught exception in thread ${thread.name}: ${throwable.message}")
             Toast.makeText(this, "App error occurred. Please restart.", Toast.LENGTH_LONG).show()
         }
         
         try {
-            // Force the app to follow system night mode
             AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
-            
             setContentView(R.layout.activity_dashboard)
-            
-            // Initialize Firebase Auth
+
+            // Watermark overlay inside fragmentContainer
+            try {
+                val container = findViewById<FrameLayout>(R.id.fragmentContainer)
+                container.viewTreeObserver.addOnGlobalLayoutListener(object : android.view.ViewTreeObserver.OnGlobalLayoutListener {
+                    override fun onGlobalLayout() {
+                        container.viewTreeObserver.removeOnGlobalLayoutListener(this)
+                        val size = (container.width * 0.65f).toInt().coerceAtLeast(220)
+                        val params = FrameLayout.LayoutParams(size, size, Gravity.CENTER)
+                        watermarkView = ImageView(this@DashboardActivity).apply {
+                            setImageResource(R.drawable.double_dot_logo)
+                            alpha = 0.15f
+                            scaleType = ImageView.ScaleType.FIT_CENTER
+                            isClickable = false
+                            isFocusable = false
+                            importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+                        }
+                        container.addView(watermarkView, params)
+                    }
+                })
+            } catch (_: Exception) {}
+
             auth = FirebaseAuth.getInstance()
-            
-            // Check if user is authenticated
-            if (auth.currentUser == null) {
-                android.util.Log.e("DashboardActivity", "No authenticated user found")
-                goToSignIn()
-                return
-            }
-            
-            // Get user role from intent
+            if (auth.currentUser == null) { goToSignIn(); return }
             currentUserRole = intent.getStringExtra("user_role") ?: "coach"
             
-            // Log the role for debugging
-            android.util.Log.d("DashboardActivity", "Current user role: $currentUserRole")
-            
-            // For coach accounts, use ultra-simplified setup
             if (currentUserRole == "coach") {
                 setupUltraSimpleCoachView()
             } else {
-                // Full setup for other roles
                 setupToolbar()
                 setupNavigationDrawer()
                 setupBottomNavigation()
@@ -80,22 +91,22 @@ class DashboardActivity : AppCompatActivity(), NavigationView.OnNavigationItemSe
         } catch (e: Exception) {
             android.util.Log.e("DashboardActivity", "Error in onCreate: ${e.message}")
             Toast.makeText(this, "Error starting app: ${e.message}", Toast.LENGTH_LONG).show()
-            
-            // Emergency recovery - try to load a simple fragment
             try {
-                // Try to load a basic fragment without any complex setup
                 val simpleFragment = AttendanceFragment()
-                supportFragmentManager.beginTransaction()
-                    .replace(R.id.fragmentContainer, simpleFragment)
-                    .commit()
-            } catch (recoveryException: Exception) {
-                android.util.Log.e("DashboardActivity", "Emergency recovery failed: ${recoveryException.message}")
-                // Last resort - show a simple message
-                Toast.makeText(this, "App initialization failed. Please restart the app.", Toast.LENGTH_LONG).show()
-            }
+                supportFragmentManager.beginTransaction().replace(R.id.fragmentContainer, simpleFragment).commit()
+            } catch (_: Exception) { }
         }
     }
-    
+
+    private fun ensureWatermarkOnTop() {
+        try {
+            val container = findViewById<FrameLayout>(R.id.fragmentContainer)
+            watermarkView?.let { wm ->
+                container.post { wm.bringToFront(); wm.invalidate() }
+            }
+        } catch (_: Exception) {}
+    }
+
     private fun setupUltraSimpleCoachView() {
         try {
             // Setup navigation drawer for coaches (without expenses)
@@ -200,57 +211,17 @@ class DashboardActivity : AppCompatActivity(), NavigationView.OnNavigationItemSe
     
     private fun setupRoleBasedMenuVisibility() {
         val menu = navigationView.menu
+        val role = roleEnum
         
-        // Set visibility for "Completed" menu item based on role
-        val completedMenuItem = menu.findItem(R.id.nav_completed)
-        if (completedMenuItem != null) {
-            // Only show "Completed" for admin and head coach
-            completedMenuItem.isVisible = (currentUserRole == "admin" || currentUserRole == "head_coach")
-        }
+        // Completed/Coach Attendance/Salary/Waiting List/Weekly Schedule
+        menu.findItem(R.id.nav_completed)?.isVisible = Permissions.canAccessEmployees(role)
+        menu.findItem(R.id.nav_coach_attendance)?.isVisible = Permissions.canAccessEmployeeAttendance(role)
+        menu.findItem(R.id.nav_salary)?.isVisible = Permissions.canAccessSalaries(role)
+        menu.findItem(R.id.nav_waiting_list)?.isVisible = Permissions.canAccessWaitingList(role)
+        menu.findItem(R.id.nav_weekly_schedule)?.isVisible = Permissions.canAccessWaitingList(role)
         
-        // Set visibility for "Coach Attendance" menu item based on role
-        val coachAttendanceMenuItem = menu.findItem(R.id.nav_coach_attendance)
-        if (coachAttendanceMenuItem != null) {
-            // Only show "Coach Attendance" for admin and head coach
-            coachAttendanceMenuItem.isVisible = (currentUserRole == "admin" || currentUserRole == "head_coach")
-        }
-        
-        // Set visibility for "Salary" menu item based on role
-        val salaryMenuItem = menu.findItem(R.id.nav_salary)
-        if (salaryMenuItem != null) {
-            // Only show "Salary" for admin and head coach
-            salaryMenuItem.isVisible = (currentUserRole == "admin" || currentUserRole == "head_coach")
-        }
-        
-        // Set visibility for "Waiting List" menu item based on role
-        val waitingListMenuItem = menu.findItem(R.id.nav_waiting_list)
-        if (waitingListMenuItem != null) {
-            // Only show "Waiting List" for admin and head coach
-            waitingListMenuItem.isVisible = (currentUserRole == "admin" || currentUserRole == "head_coach")
-        }
-        
-        // Set visibility for "Weekly Schedule" menu item based on role
-        val weeklyScheduleMenuItem = menu.findItem(R.id.nav_weekly_schedule)
-        if (weeklyScheduleMenuItem != null) {
-            // Only show "Weekly Schedule" for admin and head coach
-            weeklyScheduleMenuItem.isVisible = (currentUserRole == "admin" || currentUserRole == "head_coach")
-        }
-        
-        // Hide expenses for admin role
-        if (currentUserRole == "admin") {
-            menu.findItem(R.id.nav_expenses)?.isVisible = false
-        }
-        
-        // Hide expenses for coach role
-        if (currentUserRole == "coach") {
-            menu.findItem(R.id.nav_expenses)?.isVisible = false
-        }
-        
-        // Head coach should have full access (no limitations)
-        if (currentUserRole == "head_coach") {
-            // Ensure all menu items are visible for head coach
-            menu.findItem(R.id.nav_expenses)?.isVisible = true
-        }
+        // Expenses hidden for admin and coach
+        menu.findItem(R.id.nav_expenses)?.isVisible = Permissions.canAccessExpenses(role)
     }
     
     private fun addRoleFixButton() {
@@ -329,19 +300,28 @@ class DashboardActivity : AppCompatActivity(), NavigationView.OnNavigationItemSe
     private fun setupBottomNavigation() {
         try {
             bottomNavigation = findViewById(R.id.bottomNavigation)
+            val role = roleEnum
+            // Employees tab visible only for head coach/admin
+            bottomNavigation.menu.findItem(R.id.nav_employees)?.isVisible = Permissions.canAccessEmployees(role)
             
-            if (currentUserRole == "coach") {
-                // Simplified navigation for coaches - NO EMPLOYEES ACCESS
-                setupSimpleBottomNavigation()
-            } else {
-                // Full navigation for other roles
-                setupRoleBasedBottomNavigation()
-                setupFullBottomNavigation()
+            bottomNavigation.setOnItemSelectedListener { menuItem ->
+                try {
+                    when (menuItem.itemId) {
+                        R.id.nav_calendar -> { loadFragment(AttendanceFragment()); true }
+                        R.id.nav_trainees -> { loadFragment(TraineesFragment()); true }
+                        R.id.nav_employees -> {
+                            if (Permissions.canAccessEmployees(role)) {
+                                loadFragment(EmployeesFragment.newInstance(currentUserRole)); true
+                            } else { showToast("You don't have permission to access employees"); false }
+                        }
+                        else -> false
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.e("DashboardActivity", "Error in navigation: ${e.message}")
+                    Toast.makeText(this, "Navigation error: ${e.message}", Toast.LENGTH_LONG).show(); false
+                }
             }
-        } catch (e: Exception) {
-            android.util.Log.e("DashboardActivity", "Error setting up bottom navigation: ${e.message}")
-            Toast.makeText(this, "Error setting up navigation: ${e.message}", Toast.LENGTH_LONG).show()
-        }
+        } catch (_: Exception) {}
     }
     
     private fun setupCoachNavigationDrawer() {
@@ -375,7 +355,6 @@ class DashboardActivity : AppCompatActivity(), NavigationView.OnNavigationItemSe
             
             // Show account and settings for coaches
             menu.findItem(R.id.nav_account)?.isVisible = true
-            menu.findItem(R.id.nav_settings)?.isVisible = true
             menu.findItem(R.id.nav_sign_out)?.isVisible = true
         } catch (e: Exception) {
             android.util.Log.e("DashboardActivity", "Error setting up coach menu visibility: ${e.message}")
@@ -510,7 +489,7 @@ class DashboardActivity : AppCompatActivity(), NavigationView.OnNavigationItemSe
                         }
                         R.id.nav_employees -> {
                             // Only allow head coaches and admins to access employees
-                            if (currentUserRole == "head_coach" || currentUserRole == "admin") {
+                            if (Permissions.canAccessEmployees(roleEnum)) {
                                 loadFragment(EmployeesFragment.newInstance(currentUserRole))
                                 true
                             } else {
@@ -584,7 +563,10 @@ class DashboardActivity : AppCompatActivity(), NavigationView.OnNavigationItemSe
         try {
             supportFragmentManager.beginTransaction()
                 .replace(R.id.fragmentContainer, fragment)
+                .runOnCommit { ensureWatermarkOnTop() }
                 .commit()
+            // Fallback in case runOnCommit isn't called on older devices
+            ensureWatermarkOnTop()
         } catch (e: Exception) {
             android.util.Log.e("DashboardActivity", "Error loading fragment: ${e.message}")
             Toast.makeText(this, "Error loading page: ${e.message}", Toast.LENGTH_LONG).show()
@@ -611,75 +593,17 @@ class DashboardActivity : AppCompatActivity(), NavigationView.OnNavigationItemSe
     }
     
     override fun onNavigationItemSelected(item: MenuItem): Boolean {
+        val role = roleEnum
         when (item.itemId) {
-            R.id.nav_account -> {
-                // TODO: Navigate to account fragment/activity
-            }
-            R.id.nav_settings -> {
-                // TODO: Navigate to settings fragment/activity
-            }
-            R.id.nav_expenses -> {
-                // Check role-based access for expenses
-                if (currentUserRole == "head_coach" || currentUserRole == "admin") {
-                    loadFragment(ExpensesFragment.newInstance())
-                } else {
-                    showToast("You don't have permission to access expenses")
-                }
-            }
-            R.id.nav_completed -> {
-                // Check role-based access for completed trainees
-                if (currentUserRole == "head_coach" || currentUserRole == "admin") {
-                    loadFragment(CompletedTraineesFragment())
-                } else {
-                    showToast("You don't have permission to access completed trainees")
-                }
-            }
-            R.id.nav_coach_attendance -> {
-                // Check role-based access for coach attendance
-                if (currentUserRole == "head_coach" || currentUserRole == "admin") {
-                    loadFragment(CoachAttendanceFragment.newInstance())
-                } else {
-                    showToast("You don't have permission to access coach attendance")
-                }
-            }
-            R.id.nav_salary -> {
-                // Check role-based access for salary
-                if (currentUserRole == "head_coach" || currentUserRole == "admin") {
-                    loadFragment(SalaryFragment.newInstance())
-                } else {
-                    showToast("You don't have permission to access salary information")
-                }
-            }
-            R.id.nav_waiting_list -> {
-                // Check role-based access for waiting list
-                if (currentUserRole == "head_coach" || currentUserRole == "admin") {
-                    loadFragment(WaitingListFragment().apply {
-                        arguments = Bundle().apply {
-                            putString("user_role", currentUserRole)
-                        }
-                    })
-                } else {
-                    showToast("You don't have permission to access the waiting list")
-                }
-            }
-            R.id.nav_weekly_schedule -> {
-                // Check role-based access for weekly schedule
-                if (currentUserRole == "head_coach" || currentUserRole == "admin") {
-                    loadFragment(WeeklyScheduleFragment().apply {
-                        arguments = Bundle().apply {
-                            putString("user_role", currentUserRole)
-                        }
-                    })
-                } else {
-                    showToast("You don't have permission to access the weekly schedule")
-                }
-            }
-            R.id.nav_sign_out -> {
-                signOut()
-            }
+            R.id.nav_account -> loadFragment(com.example.double_dot_demo.fragments.AccountFragment())
+            R.id.nav_expenses -> if (Permissions.canAccessExpenses(role)) loadFragment(ExpensesFragment.newInstance()) else showToast("No permission")
+            R.id.nav_completed -> if (Permissions.canAccessEmployees(role)) loadFragment(CompletedTraineesFragment()) else showToast("No permission")
+            R.id.nav_coach_attendance -> if (Permissions.canAccessEmployeeAttendance(role)) loadFragment(CoachAttendanceFragment.newInstance()) else showToast("No permission")
+            R.id.nav_salary -> if (Permissions.canAccessSalaries(role)) loadFragment(SalaryFragment.newInstance()) else showToast("No permission")
+            R.id.nav_waiting_list -> if (Permissions.canAccessWaitingList(role)) loadFragment(WaitingListFragment().apply { arguments = Bundle().apply { putString("user_role", currentUserRole) } }) else showToast("No permission")
+            R.id.nav_weekly_schedule -> if (Permissions.canAccessWaitingList(role)) loadFragment(WeeklyScheduleFragment().apply { arguments = Bundle().apply { putString("user_role", currentUserRole) } }) else showToast("No permission")
+            R.id.nav_sign_out -> signOut()
         }
-        
-        // Close the drawer
         drawerLayout.closeDrawer(GravityCompat.START)
         return true
     }

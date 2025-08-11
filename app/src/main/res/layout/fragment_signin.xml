@@ -25,12 +25,12 @@
 
             <ImageView
                 android:id="@+id/ivLogo"
-                android:layout_width="@dimen/logo_size"
-                android:layout_height="@dimen/logo_size"
-                android:src="@drawable/ic_squash_logo"
+                android:layout_width="135dp"
+                android:layout_height="139dp"
+                android:layout_marginBottom="@dimen/logo_text_margin"
                 android:background="@drawable/circle_background"
                 android:padding="@dimen/logo_padding"
-                android:layout_marginBottom="@dimen/logo_text_margin" />
+                android:src="@drawable/ic_squash_logo" />
 
             <TextView
                 android:layout_width="wrap_content"

@@ -7,6 +7,7 @@ import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 import com.example.double_dot_demo.R
 import com.example.double_dot_demo.databinding.ItemScheduleRowBinding
+import com.example.double_dot_demo.dialogs.TraineeNamesDialog
 import com.example.double_dot_demo.models.WeeklySchedule
 
 class WeeklyScheduleAdapter(
@@ -17,6 +18,10 @@ class WeeklyScheduleAdapter(
     private var traineeNames: Map<String, String> = emptyMap()
 
     fun updateSchedule(schedule: Map<String, Map<String, List<String>>>, names: Map<String, String>) {
+        android.util.Log.d("WeeklyScheduleAdapter", "updateSchedule called")
+        android.util.Log.d("WeeklyScheduleAdapter", "Schedule data: $schedule")
+        android.util.Log.d("WeeklyScheduleAdapter", "Trainee names: $names")
+        
         scheduleData = schedule
         traineeNames = names
         notifyDataSetChanged()
@@ -42,12 +47,15 @@ class WeeklyScheduleAdapter(
 
         fun bind(day: String, daySchedule: Map<String, List<String>>) {
             binding.tvDayName.text = day
+            android.util.Log.d("WeeklyScheduleAdapter", "Binding day: $day, daySchedule: $daySchedule")
 
             // Bind each time slot cell
             WeeklySchedule.TIME_SLOTS.forEach { timeSlot ->
                 val traineeIds = daySchedule[timeSlot] ?: emptyList()
                 val cell = getCellForTimeSlot(timeSlot)
-                val traineeNames = traineeIds.mapNotNull { traineeNames[it] }
+                val traineeNames = traineeIds.mapNotNull { this@WeeklyScheduleAdapter.traineeNames[it] }
+                
+                android.util.Log.d("WeeklyScheduleAdapter", "Time slot $timeSlot: traineeIds=$traineeIds, names=$traineeNames")
                 
                 cell.text = if (traineeNames.isNotEmpty()) {
                     traineeNames.joinToString("\n")
@@ -64,6 +72,13 @@ class WeeklyScheduleAdapter(
                 // Set click listener
                 cell.setOnClickListener {
                     onCellClick(day, timeSlot, traineeIds)
+                }
+                
+                // Set long click listener to show trainee names in larger text
+                cell.setOnLongClickListener {
+                    val dialog = TraineeNamesDialog(cell.context, day, timeSlot, traineeNames)
+                    dialog.show()
+                    true // Consume the long click event
                 }
             }
         }

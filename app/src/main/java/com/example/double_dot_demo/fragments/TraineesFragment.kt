@@ -19,6 +19,9 @@ import com.example.double_dot_demo.models.Trainee
 import com.example.double_dot_demo.utils.LoadingManager
 import com.example.double_dot_demo.utils.PerformanceUtils
 import com.example.double_dot_demo.utils.ScheduleManager
+import com.example.double_dot_demo.utils.SalaryManager
+import com.example.double_dot_demo.utils.Role
+import com.example.double_dot_demo.utils.Permissions
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
@@ -35,11 +38,13 @@ class TraineesFragment : Fragment() {
     private lateinit var traineeAdapter: TraineeAdapter
     private lateinit var loadingManager: LoadingManager
     private lateinit var scheduleManager: ScheduleManager
+    private lateinit var salaryManager: SalaryManager
 
     private val trainees = mutableListOf<Trainee>()
     private val filteredTrainees = mutableListOf<Trainee>()
 
     private var currentUserRole: String = ""
+    private val roleEnum: Role get() = Role.from(currentUserRole)
     private val dateFormat = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
     
     // Search and sort variables
@@ -74,6 +79,9 @@ class TraineesFragment : Fragment() {
             
             // Initialize schedule manager
             scheduleManager = ScheduleManager()
+            
+            // Initialize salary manager
+            salaryManager = SalaryManager()
             
             // Get current user role from arguments
             currentUserRole = arguments?.getString("user_role") ?: "coach"
@@ -118,13 +126,14 @@ class TraineesFragment : Fragment() {
         try {
             binding.recyclerViewTrainees.layoutManager = LinearLayoutManager(requireContext())
             
+            val isCoach = roleEnum == Role.COACH
             traineeAdapter = TraineeAdapter(
-                isCoachView = false, // Always show full view with buttons
-                onEditClick = { trainee -> showEditTraineeDialog(trainee) },
-                onDeleteClick = { trainee -> deleteTrainee(trainee) },
-                onRenewClick = { trainee -> showRenewTraineeDialog(trainee) },
-                onFreezeClick = { trainee -> toggleFreezeStatus(trainee) },
-                onShowDetailsClick = { trainee -> showTraineeDetailsDialog(trainee) }
+                isCoachView = isCoach,
+                onEditClick = { trainee -> if (!isCoach) showEditTraineeDialog(trainee) },
+                onDeleteClick = { trainee -> if (!isCoach) deleteTrainee(trainee) },
+                onRenewClick = { trainee -> if (!isCoach) showRenewTraineeDialog(trainee) },
+                onFreezeClick = { trainee -> if (!isCoach) toggleFreezeStatus(trainee) },
+                onShowDetailsClick = { _ -> }
             )
             
             binding.recyclerViewTrainees.adapter = traineeAdapter
@@ -151,15 +160,9 @@ class TraineesFragment : Fragment() {
     private fun setupAddButton() {
         android.util.Log.d("TraineesFragment", "Setting up add button. Current role: $currentUserRole")
         
-        binding.btnAddTrainee.setOnClickListener {
-            safeExecute {
-                if (canAddTrainee()) {
-                    showAddTraineeDialog()
-                } else {
-                    showToast("You don't have permission to add trainees")
-                }
-            }
-        }
+        val isCoach = roleEnum == Role.COACH
+        binding.btnAddTrainee.visibility = if (isCoach) View.GONE else View.VISIBLE
+        binding.btnAddTrainee.setOnClickListener { if (!isCoach) showAddTraineeDialog() }
         
         // Proper role-based visibility
         if (currentUserRole == "head_coach" || currentUserRole == "admin") {
@@ -270,7 +273,7 @@ class TraineesFragment : Fragment() {
             android.util.Log.d("TraineesFragment", "Loading trainees for role: $currentUserRole")
             
             // Load trainees based on user role
-            val query = if (currentUserRole == "coach") {
+            val query = if (roleEnum == Role.COACH) {
                 // Coaches can only see their own trainees
                 val coachId = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid
                 android.util.Log.d("TraineesFragment", "Coach ID: $coachId")
@@ -447,13 +450,7 @@ class TraineesFragment : Fragment() {
     }
 
     private fun updateStats() {
-        if (!isAdded) return
-        
-        val total = filteredTrainees.size
-        val active = filteredTrainees.count { it.status == "active" }
-        
-        binding.tvTotalCount.text = total.toString()
-        binding.tvActiveCount.text = active.toString()
+        // Stats counters removed from layout
     }
 
     private fun showAddTraineeDialog() {
@@ -504,6 +501,13 @@ class TraineesFragment : Fragment() {
                 android.util.Log.d("TraineesFragment", "Using selected coach ID: ${trainee.coachId}")
             }
             
+            android.util.Log.d("TraineesFragment", "=== ADDING TRAINEE ===")
+            android.util.Log.d("TraineesFragment", "Trainee Name: ${trainee.name}")
+            android.util.Log.d("TraineeFragment", "Coach ID: ${trainee.coachId}")
+            android.util.Log.d("TraineeFragment", "Coach Name: ${trainee.coachName}")
+            android.util.Log.d("TraineeFragment", "Payment Amount: ${trainee.paymentAmount}")
+            android.util.Log.d("TraineeFragment", "Status: ${trainee.status}")
+            
             firestore.collection("trainees")
                 .add(trainee)
                 .addOnSuccessListener { documentReference ->
@@ -523,6 +527,29 @@ class TraineesFragment : Fragment() {
                     
                     // Automatically create expense entry since trainees are automatically paid
                     createTraineeExpenseEntry(trainee, documentReference.id, "TRAINEE_ADDED")
+                    
+                    // Automatically calculate salary for the coach when trainee is added
+                    if (trainee.coachId.isNotEmpty()) {
+                        android.util.Log.d("TraineesFragment", "Starting automatic salary calculation for coach: ${trainee.coachId}")
+                        fragmentScope.launch {
+                            try {
+                                val success = salaryManager.recalculateSalaryForCoach(trainee.coachId)
+                                if (success) {
+                                    android.util.Log.d("TraineesFragment", "✅ Salary calculated automatically for coach: ${trainee.coachId}")
+                                    showToast("Salary updated automatically")
+                                } else {
+                                    android.util.Log.w("TraineesFragment", "❌ Failed to calculate salary for coach: ${trainee.coachId}")
+                                    showToast("Failed to update salary")
+                                }
+                            } catch (e: Exception) {
+                                android.util.Log.e("TraineesFragment", "Error calculating salary: ${e.message}")
+                                e.printStackTrace()
+                                showToast("Error updating salary: ${e.message}")
+                            }
+                        }
+                    } else {
+                        android.util.Log.w("TraineesFragment", "No coach ID found for trainee, skipping salary calculation")
+                    }
                 }
                 .addOnFailureListener { e ->
                     progressDialog.dismiss()
@@ -571,6 +598,22 @@ class TraineesFragment : Fragment() {
                     
                     // Automatically create expense entry since trainees are automatically paid
                     createTraineeExpenseEntry(trainee, trainee.id, "TRAINEE_UPDATED")
+                    
+                    // Automatically calculate salary for the coach when trainee is updated
+                    if (trainee.coachId.isNotEmpty()) {
+                        fragmentScope.launch {
+                            try {
+                                val success = salaryManager.recalculateSalaryForCoach(trainee.coachId)
+                                if (success) {
+                                    android.util.Log.d("TraineesFragment", "Salary calculated automatically for coach after update: ${trainee.coachId}")
+                                } else {
+                                    android.util.Log.w("TraineesFragment", "Failed to calculate salary for coach after update: ${trainee.coachId}")
+                                }
+                            } catch (e: Exception) {
+                                android.util.Log.e("TraineesFragment", "Error calculating salary after update: ${e.message}")
+                            }
+                        }
+                    }
                 }
                 .addOnFailureListener { e ->
                     progressDialog.dismiss()
@@ -605,6 +648,22 @@ class TraineesFragment : Fragment() {
                     progressDialog.dismiss()
                     android.util.Log.d("TraineesFragment", "Trainee deleted successfully from Firestore: ${trainee.name}")
                     showToast("Trainee deleted successfully")
+                    
+                    // Automatically calculate salary for the coach when trainee is deleted
+                    if (trainee.coachId.isNotEmpty()) {
+                        fragmentScope.launch {
+                            try {
+                                val success = salaryManager.recalculateSalaryForCoach(trainee.coachId)
+                                if (success) {
+                                    android.util.Log.d("TraineesFragment", "Salary calculated automatically for coach after deletion: ${trainee.coachId}")
+                                } else {
+                                    android.util.Log.w("TraineesFragment", "Failed to calculate salary for coach after deletion: ${trainee.coachId}")
+                                }
+                            } catch (e: Exception) {
+                                android.util.Log.e("TraineesFragment", "Error calculating salary after deletion: ${e.message}")
+                            }
+                        }
+                    }
                     
                     // Force refresh the list to ensure UI updates
                     loadTrainees()

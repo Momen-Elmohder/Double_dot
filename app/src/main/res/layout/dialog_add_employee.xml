@@ -112,7 +112,7 @@
 
         </com.google.android.material.textfield.TextInputLayout>
 
-        <!-- Branch Input -->
+        <!-- Branch Selection -->
         <com.google.android.material.textfield.TextInputLayout
             android:id="@+id/tilBranch"
             android:layout_width="match_parent"
@@ -123,14 +123,13 @@
             app:startIconTint="?attr/colorPrimary"
             app:boxStrokeColor="?attr/colorPrimary"
             app:hintTextColor="?attr/colorPrimary"
-            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu">
 
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/etBranch"
+            <AutoCompleteTextView
+                android:id="@+id/actvBranch"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:inputType="text"
-                android:maxLines="1"
+                android:inputType="none"
                 android:textColor="?attr/colorOnSurface" />
 
         </com.google.android.material.textfield.TextInputLayout>

@@ -6,15 +6,15 @@ import android.view.ViewGroup
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 import com.example.double_dot_demo.R
-import com.example.double_dot_demo.models.Employee
-import com.example.double_dot_demo.models.Trainee
+import com.example.double_dot_demo.dialogs.SalaryDetailsDialog
+import com.example.double_dot_demo.models.Salary
 import com.google.android.material.card.MaterialCardView
 import java.text.NumberFormat
+import java.text.SimpleDateFormat
 import java.util.*
 
 class SalaryAdapter(
-    private val coaches: List<Employee>,
-    private val trainees: List<Trainee>
+    private val salaries: List<Salary>
 ) : RecyclerView.Adapter<SalaryAdapter.SalaryViewHolder>() {
 
     private val numberFormat = NumberFormat.getCurrencyInstance(Locale.US)
@@ -38,117 +38,62 @@ class SalaryAdapter(
 
     override fun onBindViewHolder(holder: SalaryViewHolder, position: Int) {
         try {
-            val coach = coaches.getOrNull(position) ?: return
+            val salary = salaries.getOrNull(position) ?: return
             
-            // Calculate salary information
-            val salaryInfo = calculateSalaryInfo(coach)
+            android.util.Log.d("SalaryAdapter", "Binding salary for ${salary.employeeName}: final salary: $${String.format("%.2f", salary.finalSalary)}")
             
-            android.util.Log.d("SalaryAdapter", "Binding coach ${coach.name}: total payments: $${String.format("%.2f", salaryInfo.totalPayments)}, base salary: $${String.format("%.2f", salaryInfo.baseSalary)}, final salary: $${String.format("%.2f", salaryInfo.finalSalary)}")
+            // Basic info
+            holder.tvCoachName.text = "${salary.employeeName} - ${getMonthDisplayName(salary.month)}"
+            holder.tvTotalPayments.text = numberFormat.format(salary.totalPayments)
+            // Show total income (100% of trainee fees) instead of base salary
+            val totalIncome = salary.totalPayments / 0.4 // Convert 40% back to 100%
+            holder.tvBaseSalary.text = numberFormat.format(totalIncome)
+            holder.tvAbsencePercent.text = "${String.format("%.1f", salary.absencePercentage)}%"
+            holder.tvDeduction.text = numberFormat.format(salary.deductionAmount)
+            holder.tvFinalSalary.text = numberFormat.format(salary.finalSalary)
+            holder.tvTraineeCount.text = "${salary.totalTrainees} trainees"
             
-            holder.tvCoachName.text = coach.name
-            holder.tvTotalPayments.text = numberFormat.format(salaryInfo.totalPayments)
-            holder.tvBaseSalary.text = numberFormat.format(salaryInfo.baseSalary)
-            holder.tvAbsencePercent.text = "${String.format("%.1f", salaryInfo.absencePercent)}%"
-            holder.tvDeduction.text = numberFormat.format(salaryInfo.deduction)
-            holder.tvFinalSalary.text = numberFormat.format(salaryInfo.finalSalary)
-            holder.tvTraineeCount.text = "${salaryInfo.traineeCount} trainees"
-            
-            // Set color for absence percentage
+            // Set colors based on values
             val absenceColor = when {
-                salaryInfo.absencePercent <= 5 -> holder.itemView.context.getColor(R.color.success_light)
-                salaryInfo.absencePercent <= 15 -> holder.itemView.context.getColor(R.color.warning_light)
+                salary.absencePercentage <= 5 -> holder.itemView.context.getColor(R.color.success_light)
+                salary.absencePercentage <= 15 -> holder.itemView.context.getColor(R.color.warning_light)
                 else -> holder.itemView.context.getColor(R.color.error_light)
             }
             holder.tvAbsencePercent.setTextColor(absenceColor)
             
-            // Set color for final salary
             val salaryColor = when {
-                salaryInfo.finalSalary > 0 -> holder.itemView.context.getColor(R.color.success_light)
+                salary.finalSalary > 0 -> holder.itemView.context.getColor(R.color.success_light)
                 else -> holder.itemView.context.getColor(R.color.error_light)
             }
             holder.tvFinalSalary.setTextColor(salaryColor)
             
+            // Add long press listener to show details
+            holder.cardView.setOnLongClickListener {
+                val detailsDialog = SalaryDetailsDialog(holder.itemView.context, salary)
+                detailsDialog.show()
+                true // Consume the long click event
+            }
+            
         } catch (e: Exception) {
-            android.util.Log.e("SalaryAdapter", "Error binding view holder: ${e.message}")
+            android.util.Log.e("SalaryAdapter", "Error binding salary data: ${e.message}")
         }
     }
 
-    override fun getItemCount(): Int = coaches.size
-
-    private fun calculateSalaryInfo(coach: Employee): SalaryInfo {
-        try {
-            // Find all trainees assigned to this coach
-            val coachTrainees = trainees.filter { it.coachId == coach.id }
-            
-            android.util.Log.d("SalaryAdapter", "Calculating salary for ${coach.name} (ID: ${coach.id}): ${coachTrainees.size} trainees")
-            
-            // Debug: Log all trainees and their coach IDs
-            trainees.forEach { trainee ->
-                android.util.Log.d("SalaryAdapter", "Trainee: ${trainee.name}, Coach ID: ${trainee.coachId}, Coach Name: ${trainee.coachName}, Payment: $${String.format("%.2f", trainee.paymentAmount)}")
-            }
-            
-            // Calculate total payments from trainees
-            val totalPayments = coachTrainees.sumOf { it.paymentAmount }
-            
-            // Calculate base salary (40% of total payments)
-            val baseSalary = totalPayments * 0.4
-            
-            // Calculate attendance stats
-            val (presentCount, absentCount) = calculateAttendanceStats(coach)
-            val totalDays = presentCount + absentCount
-            
-            // Calculate absence percentage
-            val absencePercent = if (totalDays > 0) {
-                (absentCount.toDouble() / totalDays.toDouble()) * 100.0
-            } else {
-                0.0
-            }
-            
-            // Calculate deduction
-            val deduction = baseSalary * (absencePercent / 100.0)
-            
-            // Calculate final salary
-            val finalSalary = baseSalary - deduction
-            
-            android.util.Log.d("SalaryAdapter", "Salary calculation for ${coach.name}: total payments: $${String.format("%.2f", totalPayments)}, base salary: $${String.format("%.2f", baseSalary)}, absence: ${String.format("%.1f", absencePercent)}%, deduction: $${String.format("%.2f", deduction)}, final: $${String.format("%.2f", finalSalary)}")
-            
-            return SalaryInfo(
-                totalPayments = totalPayments,
-                baseSalary = baseSalary,
-                absencePercent = absencePercent,
-                deduction = deduction,
-                finalSalary = finalSalary,
-                traineeCount = coachTrainees.size
-            )
-            
-        } catch (e: Exception) {
-            android.util.Log.e("SalaryAdapter", "Error calculating salary info: ${e.message}")
-            return SalaryInfo()
-        }
-    }
-
-    private fun calculateAttendanceStats(coach: Employee): Pair<Int, Int> {
+    override fun getItemCount(): Int = salaries.size
+    
+    private fun getMonthDisplayName(monthKey: String): String {
         return try {
-            var presentCount = 0
-            var absentCount = 0
+            val parts = monthKey.split("-")
+            val year = parts[0].toInt()
+            val month = parts[1].toInt() - 1
             
-            coach.attendanceDays.forEach { (_, isPresent) ->
-                if (isPresent) presentCount++ else absentCount++
-            }
+            val calendar = Calendar.getInstance()
+            calendar.set(year, month, 1)
             
-            Pair(presentCount, absentCount)
+            val format = SimpleDateFormat("MMM yyyy", Locale.getDefault())
+            format.format(calendar.time)
         } catch (e: Exception) {
-            android.util.Log.e("SalaryAdapter", "Error calculating attendance stats: ${e.message}")
-            Pair(0, 0)
+            monthKey
         }
     }
-
-    data class SalaryInfo(
-        val totalPayments: Double = 0.0,
-        val baseSalary: Double = 0.0,
-        val absencePercent: Double = 0.0,
-        val deduction: Double = 0.0,
-        val finalSalary: Double = 0.0,
-        val traineeCount: Int = 0
-    )
-} 
+}

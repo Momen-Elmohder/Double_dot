@@ -74,7 +74,7 @@
                             android:text="Paid"
                             android:textSize="10sp"
                             android:textColor="@color/success_light"
-                            android:background="@drawable/status_background"
+                            android:background="@android:color/transparent"
                             android:padding="2dp" />
 
                     </LinearLayout>

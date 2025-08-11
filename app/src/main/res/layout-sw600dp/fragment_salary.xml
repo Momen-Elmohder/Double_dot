@@ -4,22 +4,22 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:padding="16dp">
+    android:padding="24dp">
 
-    <!-- Header -->
+    <!-- Header with Export -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:layout_marginBottom="12dp">
+        android:layout_marginBottom="16dp">
 
         <TextView
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:text="Salary Management System"
-            android:textSize="24sp"
+            android:textSize="26sp"
             android:textStyle="bold"
             android:textColor="?attr/colorOnSurface" />
 
@@ -30,13 +30,13 @@
             android:text="Export PDF" />
     </LinearLayout>
 
-    <!-- Controls: Month selector + Search -->
+    <!-- Controls: Month selector + Search side-by-side -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:layout_marginBottom="12dp">
+        android:layout_marginBottom="16dp">
 
         <com.google.android.material.textfield.TextInputLayout
             android:id="@+id/tilMonth"
@@ -59,7 +59,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:layout_marginStart="8dp"
+            android:layout_marginStart="12dp"
             android:hint="Search coach">
 
             <com.google.android.material.textfield.TextInputEditText
@@ -71,23 +71,22 @@
         </com.google.android.material.textfield.TextInputLayout>
     </LinearLayout>
 
-    <!-- RecyclerView -->
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/recyclerViewSalaries"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1" />
 
-    <!-- No Salaries Message -->
     <TextView
         android:id="@+id/tvNoSalaries"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="No salary data available"
-        android:textSize="16sp"
+        android:textSize="18sp"
         android:textColor="?attr/colorOnSurfaceVariant"
         android:gravity="center"
         android:visibility="gone"
         android:layout_marginTop="8dp" />
 
 </LinearLayout>
+

@@ -12,33 +12,15 @@
         android:padding="16dp">
 
         <!-- Header Section -->
-        <LinearLayout
+        <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:layout_marginBottom="16dp">
-
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="جدول الأسبوع"
-                android:textSize="24sp"
-                android:textStyle="bold"
-                android:textColor="?attr/colorOnSurface"
-                android:layoutDirection="rtl" />
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnAddTrainee"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="إضافة متدرب"
-                android:textAllCaps="false"
-                android:layoutDirection="rtl"
-                style="@style/Widget.Material3.Button" />
-
-        </LinearLayout>
+            android:text="جدول الأسبوع"
+            android:textSize="24sp"
+            android:textStyle="bold"
+            android:textColor="?attr/colorOnSurface"
+            android:layoutDirection="rtl"
+            android:layout_marginBottom="16dp" />
 
         <!-- Branch Selection -->
         <com.google.android.material.textfield.TextInputLayout
@@ -175,85 +157,6 @@
             </HorizontalScrollView>
 
         </androidx.cardview.widget.CardView>
-
-        <!-- Stats Cards -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center">
-
-            <androidx.cardview.widget.CardView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:layout_marginEnd="8dp"
-                app:cardCornerRadius="8dp"
-                app:cardElevation="2dp">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="16dp"
-                    android:gravity="center">
-
-                    <TextView
-                        android:id="@+id/tvTotalSlots"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="0"
-                        android:textSize="24sp"
-                        android:textStyle="bold"
-                        android:textColor="?attr/colorPrimary" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="إجمالي المواعيد"
-                        android:textSize="12sp"
-                        android:layoutDirection="rtl" />
-
-                </LinearLayout>
-
-            </androidx.cardview.widget.CardView>
-
-            <androidx.cardview.widget.CardView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:layout_marginStart="8dp"
-                app:cardCornerRadius="8dp"
-                app:cardElevation="2dp">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="16dp"
-                    android:gravity="center">
-
-                    <TextView
-                        android:id="@+id/tvTotalTrainees"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="0"
-                        android:textSize="24sp"
-                        android:textStyle="bold"
-                        android:textColor="?attr/colorPrimary" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="إجمالي المتدربين"
-                        android:textSize="12sp"
-                        android:layoutDirection="rtl" />
-
-                </LinearLayout>
-
-            </androidx.cardview.widget.CardView>
-
-        </LinearLayout>
 
     </LinearLayout>
 

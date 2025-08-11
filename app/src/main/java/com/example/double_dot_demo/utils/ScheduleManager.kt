@@ -14,6 +14,19 @@ class ScheduleManager {
         private const val SCHEDULES_COLLECTION = "weekly_schedules"
     }
     
+    private fun createEmptySchedule(): Map<String, Map<String, List<String>>> {
+        val schedule = mutableMapOf<String, MutableMap<String, List<String>>>()
+        
+        WeeklySchedule.DAYS_OF_WEEK.forEach { day ->
+            schedule[day] = mutableMapOf()
+            WeeklySchedule.TIME_SLOTS.forEach { time ->
+                schedule[day]!![time] = emptyList()
+            }
+        }
+        
+        return schedule
+    }
+    
     fun addTraineeToSchedule(trainee: Trainee, onComplete: (Boolean) -> Unit) {
         if (trainee.scheduleDays.isEmpty() || trainee.scheduleTime.isEmpty()) {
             Log.w(TAG, "Trainee ${trainee.name} has no schedule information")
@@ -29,12 +42,14 @@ class ScheduleManager {
             .get()
             .addOnSuccessListener { document ->
                 val currentSchedule = if (document.exists()) {
-                    document.toObject(WeeklySchedule::class.java) ?: WeeklySchedule()
+                    document.toObject(WeeklySchedule::class.java)?.copy(id = document.id) ?: WeeklySchedule()
                 } else {
                     WeeklySchedule(
                         id = scheduleId,
                         branch = trainee.branch,
-                        createdAt = Timestamp.now()
+                        scheduleData = createEmptySchedule(),
+                        createdAt = Timestamp.now(),
+                        createdBy = "system"
                     )
                 }
                 
@@ -54,6 +69,8 @@ class ScheduleManager {
                     .set(updatedSchedule)
                     .addOnSuccessListener {
                         Log.d(TAG, "Trainee ${trainee.name} added to schedule successfully")
+                        Log.d(TAG, "Schedule ID: $scheduleId, Branch: ${trainee.branch}")
+                        Log.d(TAG, "Days: ${trainee.scheduleDays}, Time: ${trainee.scheduleTime}")
                         onComplete(true)
                     }
                     .addOnFailureListener { e ->
@@ -80,7 +97,7 @@ class ScheduleManager {
                     return@addOnSuccessListener
                 }
                 
-                val currentSchedule = document.toObject(WeeklySchedule::class.java) ?: WeeklySchedule()
+                val currentSchedule = document.toObject(WeeklySchedule::class.java)?.copy(id = document.id) ?: WeeklySchedule()
                 
                 // Remove trainee from schedule
                 val updatedSchedule = currentSchedule.removeTrainee(trainee.id).copy(
@@ -143,7 +160,7 @@ class ScheduleManager {
                     return@addOnSuccessListener
                 }
                 
-                val currentSchedule = document.toObject(WeeklySchedule::class.java) ?: WeeklySchedule()
+                val currentSchedule = document.toObject(WeeklySchedule::class.java)?.copy(id = document.id) ?: WeeklySchedule()
                 val updatedSchedule = currentSchedule.removeTrainee(traineeId).copy(
                     updatedAt = Timestamp.now(),
                     updatedBy = "system"

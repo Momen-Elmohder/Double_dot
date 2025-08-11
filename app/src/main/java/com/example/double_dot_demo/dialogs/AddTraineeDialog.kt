@@ -318,6 +318,12 @@ class AddTraineeDialog(
         if (binding.cbFriday.isChecked) selectedDays.add("الجمعة")
         if (binding.cbSaturday.isChecked) selectedDays.add("السبت")
 
+        android.util.Log.d("AddTraineeDialog", "Creating trainee with schedule:")
+        android.util.Log.d("AddTraineeDialog", "Name: $name")
+        android.util.Log.d("AddTraineeDialog", "Branch: $branch")
+        android.util.Log.d("AddTraineeDialog", "Selected Days: $selectedDays")
+        android.util.Log.d("AddTraineeDialog", "Schedule Time: $scheduleTime")
+
         return Trainee(
             id = trainee?.id ?: "",
             name = name,

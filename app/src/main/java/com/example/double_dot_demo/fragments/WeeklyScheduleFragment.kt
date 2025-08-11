@@ -61,6 +61,12 @@ class WeeklyScheduleFragment : Fragment() {
         loadData()
     }
     
+    override fun onResume() {
+        super.onResume()
+        // Refresh schedule when fragment becomes visible
+        refreshSchedule()
+    }
+    
     private fun initializeComponents() {
         firestore = FirebaseFirestore.getInstance()
         auth = FirebaseAuth.getInstance()
@@ -110,15 +116,7 @@ class WeeklyScheduleFragment : Fragment() {
     }
     
     private fun setupClickListeners() {
-        binding.btnAddTrainee.setOnClickListener {
-            if (binding.btnAddTrainee.isEnabled) {
-                binding.btnAddTrainee.isEnabled = false
-                showAddTraineeDialog()
-                binding.btnAddTrainee.postDelayed({
-                    binding.btnAddTrainee.isEnabled = true
-                }, 1000)
-            }
-        }
+        // Button removed - trainees are added automatically from TraineesFragment
     }
     
     private fun loadData() {
@@ -162,18 +160,18 @@ class WeeklyScheduleFragment : Fragment() {
     }
     
     private suspend fun loadScheduleForBranch(branch: String) {
+        val scheduleId = "schedule_$branch"
         val document = firestore.collection("weekly_schedules")
-            .whereEqualTo("branch", branch)
+            .document(scheduleId)
             .get()
             .await()
         
-        val schedule = if (!document.isEmpty) {
-            document.documents[0].toObject(WeeklySchedule::class.java)?.apply {
-                id = document.documents[0].id
-            }
+        val schedule = if (document.exists()) {
+            document.toObject(WeeklySchedule::class.java)?.copy(id = document.id)
         } else {
             // Create new schedule for branch
             WeeklySchedule(
+                id = scheduleId,
                 branch = branch,
                 scheduleData = createEmptySchedule(),
                 createdAt = com.google.firebase.Timestamp.now(),
@@ -183,6 +181,9 @@ class WeeklyScheduleFragment : Fragment() {
         
         withContext(Dispatchers.Main) {
             currentSchedule = schedule
+            android.util.Log.d("WeeklyScheduleFragment", "Loaded schedule for branch: $branch")
+            android.util.Log.d("WeeklyScheduleFragment", "Schedule ID: ${schedule?.id}")
+            android.util.Log.d("WeeklyScheduleFragment", "Schedule data: ${schedule?.scheduleData}")
             updateScheduleDisplay()
             updateStats()
         }
@@ -203,39 +204,30 @@ class WeeklyScheduleFragment : Fragment() {
     
     private fun updateScheduleDisplay() {
         currentSchedule?.let { schedule ->
-            scheduleAdapter.updateSchedule(schedule.scheduleData, traineeNames)
-        }
-    }
-    
-    private fun updateStats() {
-        currentSchedule?.let { schedule ->
-            var totalSlots = 0
-            var totalTrainees = 0
+            android.util.Log.d("WeeklyScheduleFragment", "updateScheduleDisplay called")
+            android.util.Log.d("WeeklyScheduleFragment", "Schedule data structure: ${schedule.scheduleData}")
+            android.util.Log.d("WeeklyScheduleFragment", "Trainee names map: $traineeNames")
             
-            for (daySchedule in schedule.scheduleData.values) {
-                for (traineeIds in daySchedule.values) {
+            // Log each day's schedule for debugging
+            schedule.scheduleData.forEach { (day, daySchedule) ->
+                daySchedule.forEach { (time, traineeIds) ->
                     if (traineeIds.isNotEmpty()) {
-                        totalSlots++
-                        totalTrainees += traineeIds.size
+                        android.util.Log.d("WeeklyScheduleFragment", "Found trainees in $day at $time: $traineeIds")
+                        val names = traineeIds.mapNotNull { traineeNames[it] }
+                        android.util.Log.d("WeeklyScheduleFragment", "Trainee names: $names")
                     }
                 }
             }
             
-            binding.tvTotalSlots.text = totalSlots.toString()
-            binding.tvTotalTrainees.text = totalTrainees.toString()
-        }
+            scheduleAdapter.updateSchedule(schedule.scheduleData, traineeNames)
+        } ?: android.util.Log.w("WeeklyScheduleFragment", "currentSchedule is null")
     }
     
-    private fun showAddTraineeDialog() {
-        // TODO: Implement AddTraineeDialog or use existing AddTraineeDialog
-        showToast("Add trainee functionality will be implemented")
+    private fun updateStats() {
+        // Stats counters removed - no longer needed
     }
     
-    private fun addTraineeToSchedule(trainee: Trainee) {
-        // This would typically open a dialog to select days and times
-        // For now, we'll add to a default slot
-        showToast("Trainee added. Please assign to specific time slots.")
-    }
+    // Add trainee dialog and manual adding removed - all automatic now
     
     private fun showEditCellDialog(day: String, timeSlot: String, traineeIds: List<String>) {
         val dialog = SimpleScheduleDialog()
@@ -263,17 +255,12 @@ class WeeklyScheduleFragment : Fragment() {
                         updatedBy = currentUserId
                     )
                     
-                    // Save to Firestore
-                    if (schedule.id.isNotEmpty()) {
-                        firestore.collection("weekly_schedules")
-                            .document(schedule.id)
-                            .set(updatedSchedule)
-                            .await()
-                    } else {
-                        firestore.collection("weekly_schedules")
-                            .add(updatedSchedule)
-                            .await()
-                    }
+                    // Save to Firestore using consistent document ID
+                    val scheduleId = if (schedule.id.isNotEmpty()) schedule.id else "schedule_$selectedBranch"
+                    firestore.collection("weekly_schedules")
+                        .document(scheduleId)
+                        .set(updatedSchedule.copy(id = scheduleId))
+                        .await()
                     
                     withContext(Dispatchers.Main) {
                         currentSchedule = updatedSchedule
@@ -294,6 +281,17 @@ class WeeklyScheduleFragment : Fragment() {
     
     private fun showToast(message: String) {
         Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show()
+    }
+    
+    fun refreshSchedule() {
+        lifecycleScope.launch {
+            try {
+                loadScheduleForBranch(selectedBranch)
+                android.util.Log.d("WeeklyScheduleFragment", "Schedule refreshed for branch: $selectedBranch")
+            } catch (e: Exception) {
+                android.util.Log.e("WeeklyScheduleFragment", "Error refreshing schedule: ${e.message}")
+            }
+        }
     }
     
     override fun onDestroyView() {

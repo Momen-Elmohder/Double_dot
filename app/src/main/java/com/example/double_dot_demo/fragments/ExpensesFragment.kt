@@ -1,11 +1,11 @@
 package com.example.double_dot_demo.fragments
 
 import android.os.Bundle
+import android.provider.MediaStore
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ArrayAdapter
-import android.widget.Spinner
 import android.widget.TextView
 import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -24,11 +24,16 @@ import com.google.firebase.firestore.Query
 import java.text.SimpleDateFormat
 import java.util.*
 import android.widget.Button
+import android.widget.AutoCompleteTextView
+import androidx.lifecycle.lifecycleScope
+import com.example.double_dot_demo.utils.ExpenseManager
+import com.example.double_dot_demo.utils.SalaryManager
+import kotlinx.coroutines.launch
 
 class ExpensesFragment : Fragment() {
 
     private var recyclerView: RecyclerView? = null
-    private var monthSpinner: Spinner? = null
+    private var actvMonth: AutoCompleteTextView? = null
     private var fabAddExpense: FloatingActionButton? = null
     private var tvTotalExpenses: TextView? = null
     private var tvTotalIncome: TextView? = null
@@ -51,6 +56,8 @@ class ExpensesFragment : Fragment() {
     
     private var selectedMonth = getCurrentMonth()
     private val dateFormat = SimpleDateFormat("MMMM yyyy", Locale.getDefault())
+    private val expenseManager by lazy { ExpenseManager() }
+    private val salaryManager by lazy { com.example.double_dot_demo.utils.SalaryManager() }
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -61,7 +68,6 @@ class ExpensesFragment : Fragment() {
             inflater.inflate(R.layout.fragment_expenses, container, false)
         } catch (e: Exception) {
             android.util.Log.e("ExpensesFragment", "Error inflating layout: ${e.message}")
-            // Return a simple view as fallback
             TextView(requireContext()).apply {
                 text = "Error loading expenses page"
                 gravity = android.view.Gravity.CENTER
@@ -73,17 +79,15 @@ class ExpensesFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
         
         try {
-            // Initialize views with null checks
             recyclerView = view.findViewById(R.id.recyclerView)
-            monthSpinner = view.findViewById(R.id.monthSpinner)
+            actvMonth = view.findViewById(R.id.actvMonth)
             fabAddExpense = view.findViewById(R.id.fabAddExpense)
             tvTotalExpenses = view.findViewById(R.id.tvTotalExpenses)
             tvTotalIncome = view.findViewById(R.id.tvTotalIncome)
             tvNetAmount = view.findViewById(R.id.tvNetAmount)
             btnExport = view.findViewById(R.id.btnExport)
             
-            // Check if all views are found
-            if (recyclerView == null || monthSpinner == null || fabAddExpense == null || 
+            if (recyclerView == null || actvMonth == null || fabAddExpense == null || 
                 tvTotalExpenses == null || tvTotalIncome == null || tvNetAmount == null || btnExport == null) {
                 android.util.Log.e("ExpensesFragment", "One or more views not found")
                 android.widget.Toast.makeText(context, "Error: Some UI elements not found", android.widget.Toast.LENGTH_SHORT).show()
@@ -91,9 +95,18 @@ class ExpensesFragment : Fragment() {
             }
             
             setupRecyclerView()
-            setupMonthSpinner()
+            setupMonthDropdown()
             setupAddExpenseButton()
             setupExportButton()
+            
+            // Monthly rollover using server time: ensure expenses month and salaries are rolled
+            viewLifecycleOwner.lifecycleScope.launch {
+                try {
+                    expenseManager.ensureMonthlyRolloverIfNeeded()
+                    salaryManager.performMonthlyRolloverIfNeeded()
+                } catch (_: Exception) {}
+            }
+            
             loadData()
             
             android.util.Log.d("ExpensesFragment", "Expenses fragment setup completed successfully")
@@ -108,7 +121,6 @@ class ExpensesFragment : Fragment() {
             recyclerView?.let { rv ->
                 rv.layoutManager = LinearLayoutManager(context)
                 
-                // Create comprehensive adapter with branch grouping
                 val adapter = ExpensesAdapter(
                     expenses = expenses,
                     trainees = trainees,
@@ -124,8 +136,6 @@ class ExpensesFragment : Fragment() {
                 
                 rv.adapter = adapter
                 currentAdapter = adapter
-                
-                android.util.Log.d("ExpensesFragment", "RecyclerView setup completed with comprehensive adapter")
             } ?: run {
                 android.util.Log.e("ExpensesFragment", "RecyclerView is null")
             }
@@ -134,44 +144,34 @@ class ExpensesFragment : Fragment() {
         }
     }
 
-    private fun setupMonthSpinner() {
-        try {
-            monthSpinner?.let { spinner ->
-                val months = generateMonthList()
-                val adapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, months)
-                adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-                spinner.adapter = adapter
-                
-                // Set current month as default
-                val currentMonthIndex = months.indexOf(dateFormat.format(Calendar.getInstance().time))
-                if (currentMonthIndex != -1) {
-                    spinner.setSelection(currentMonthIndex)
+    private fun setupMonthDropdown() {
+        lifecycleScope.launch {
+            try {
+                expenseManager.ensureMonthlyRolloverIfNeeded()
+                val months = expenseManager.getAvailableMonths()
+                val adapter = ArrayAdapter(requireContext(), android.R.layout.simple_dropdown_item_1line, months)
+                actvMonth?.setAdapter(adapter)
+                if (months.isNotEmpty()) {
+                    val current = getCurrentMonth()
+                    selectedMonth = if (months.contains(current)) current else months.first()
+                    actvMonth?.setText(selectedMonth, false)
                 }
-                
-                spinner.setOnItemSelectedListener(object : android.widget.AdapterView.OnItemSelectedListener {
-                    override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: View?, position: Int, id: Long) {
-                        selectedMonth = months[position]
-                        updateExpensesForMonth()
-                    }
-                    
-                    override fun onNothingSelected(parent: android.widget.AdapterView<*>?) {}
-                })
-                
-                android.util.Log.d("ExpensesFragment", "Month spinner setup completed")
-            } ?: run {
-                android.util.Log.e("ExpensesFragment", "MonthSpinner is null")
+                actvMonth?.setOnItemClickListener { _, _, position, _ ->
+                    val list = (actvMonth?.adapter as? ArrayAdapter<String>)
+                    selectedMonth = list?.getItem(position) ?: selectedMonth
+                    updateExpensesForMonth()
+                }
+                actvMonth?.setOnClickListener { actvMonth?.showDropDown() }
+                actvMonth?.setOnFocusChangeListener { _, hasFocus -> if (hasFocus) actvMonth?.showDropDown() }
+            } catch (e: Exception) {
+                android.util.Log.e("ExpensesFragment", "Error setting up month dropdown: ${e.message}")
             }
-        } catch (e: Exception) {
-            android.util.Log.e("ExpensesFragment", "Error setting up month spinner: ${e.message}")
         }
     }
 
     private fun setupAddExpenseButton() {
         try {
-            fabAddExpense?.setOnClickListener {
-                showAddExpenseDialog()
-            }
-            android.util.Log.d("ExpensesFragment", "Add expense button setup completed")
+            fabAddExpense?.setOnClickListener { showAddExpenseDialog() }
         } catch (e: Exception) {
             android.util.Log.e("ExpensesFragment", "Error setting up add expense button: ${e.message}")
         }
@@ -179,50 +179,70 @@ class ExpensesFragment : Fragment() {
 
     private fun setupExportButton() {
         try {
-            btnExport?.setOnClickListener {
-                showExportOptionsDialog()
-            }
+            btnExport?.setOnClickListener { exportAsPDF() }
             android.util.Log.d("ExpensesFragment", "Export button setup completed")
         } catch (e: Exception) {
             android.util.Log.e("ExpensesFragment", "Error setting up export button: ${e.message}")
         }
     }
 
-    private fun showExportOptionsDialog() {
-        try {
-            val options = arrayOf("Export as CSV", "Export as PDF")
-            androidx.appcompat.app.AlertDialog.Builder(requireContext())
-                .setTitle("Export Financial Report")
-                .setItems(options) { _, which ->
-                    when (which) {
-                        0 -> exportAsCSV()
-                        1 -> exportAsPDF()
-                    }
-                }
-                .setNegativeButton("Cancel", null)
-                .show()
-        } catch (e: Exception) {
-            android.util.Log.e("ExpensesFragment", "Error showing export options: ${e.message}")
-        }
-    }
-
-    private fun exportAsCSV() {
-        try {
-            val csvContent = generateCSVContent()
-            saveFile("expenses_report_${selectedMonth.replace(" ", "_")}.csv", csvContent)
-        } catch (e: Exception) {
-            android.util.Log.e("ExpensesFragment", "Error exporting CSV: ${e.message}")
-            android.widget.Toast.makeText(context, "Error exporting CSV: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
-        }
-    }
-
     private fun exportAsPDF() {
         try {
-            val pdfContent = generatePDFContent()
-            saveFile("expenses_report_${selectedMonth.replace(" ", "_")}.pdf", pdfContent)
+            val month = selectedMonth
+            val monthExpenses = expenses.filter { isExpenseInMonth(it, month) && it.type == "EXPENSE" }
+            val monthIncome = expenses.filter { isExpenseInMonth(it, month) && it.type == "INCOME" }
+            val totalExpenses = monthExpenses.sumOf { it.amount }
+            val totalIncome = monthIncome.sumOf { it.amount }
+            val netAmount = totalIncome - totalExpenses
+
+            val pdf = android.graphics.pdf.PdfDocument()
+            val paint = android.graphics.Paint()
+            val bold = android.graphics.Paint().apply { textSize = 16f; isFakeBoldText = true }
+            val pageInfo = android.graphics.pdf.PdfDocument.PageInfo.Builder(595, 842, 1).create()
+            val page = pdf.startPage(pageInfo)
+            var y = 40
+
+            fun draw(text: String, isBold: Boolean = false) {
+                val p = if (isBold) bold else paint
+                val size = if (isBold) 16f else 14f
+                p.textSize = size
+                page.canvas.drawText(text, 40f, y.toFloat(), p)
+                y += if (isBold) 20 else 18
+            }
+
+            draw("Double Dot Academy - Expenses Report", true)
+            draw("Month: $month")
+            y += 6
+            draw("Summary", true)
+            draw("Total Income: ${String.format("%.2f", totalIncome)}")
+            draw("Total Expenses: ${String.format("%.2f", totalExpenses)}")
+            draw("Net: ${String.format("%.2f", netAmount)}", true)
+            y += 6
+
+            draw("Branch Details", true)
+            val branches = getBranches()
+            branches.forEach { br ->
+                val d = getBranchData(br)
+                draw("$br  |  Income: ${String.format("%.2f", d.totalIncome)}  |  Manual: ${String.format("%.2f", d.manualExpenses)}  |  Salaries: ${String.format("%.2f", d.autoSalaries)}  |  Net: ${String.format("%.2f", d.totalAmount)}")
+                if (y > 800) { pdf.finishPage(page); val pinfo = android.graphics.pdf.PdfDocument.PageInfo.Builder(595, 842, pdf.pages.size + 1).create(); val newPage = pdf.startPage(pinfo); y = 40; draw("Branch Details", true); }
+            }
+
+            pdf.finishPage(page)
+            val fileName = "expenses_report_${month.replace(" ", "_")}.pdf"
+            val values = android.content.ContentValues().apply {
+                put(MediaStore.Downloads.DISPLAY_NAME, fileName)
+                put(MediaStore.Downloads.MIME_TYPE, "application/pdf")
+                put(MediaStore.Downloads.RELATIVE_PATH, android.os.Environment.DIRECTORY_DOWNLOADS)
+            }
+            val resolver = requireContext().contentResolver
+            val uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+            if (uri == null) { android.widget.Toast.makeText(context, "Save failed", android.widget.Toast.LENGTH_SHORT).show(); return }
+            resolver.openOutputStream(uri)?.use { out -> pdf.writeTo(out) }
+            pdf.close()
+            android.widget.Toast.makeText(context, "Saved to Downloads/$fileName", android.widget.Toast.LENGTH_LONG).show()
         } catch (e: Exception) {
             android.util.Log.e("ExpensesFragment", "Error exporting PDF: ${e.message}")
-            android.widget.Toast.makeText(context, "Error exporting PDF: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
+            android.widget.Toast.makeText(context, "Export failed: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
         }
     }
 
@@ -314,26 +334,19 @@ class ExpensesFragment : Fragment() {
     private fun getBranches(): List<String> {
         return try {
             val branches = mutableSetOf<String>()
-            
-            // Add branches from expenses
+            // Always include known branches so cards are visible
+            branches.addAll(listOf("نادي التوكيلات", "نادي اليخت", "المدينة الرياضية"))
+            // Add from expenses of selected month
             expenses.filter { isExpenseInMonth(it, selectedMonth) }
-                .forEach { expense ->
-                    if (expense.branch.isNotEmpty()) {
-                        branches.add(expense.branch)
-                    }
-                }
-            
-            // Add branches from trainees
-            trainees.forEach { trainee ->
-                if (trainee.branch.isNotEmpty()) {
-                    branches.add(trainee.branch)
-                }
-            }
-            
+                .forEach { expense -> if (expense.branch.isNotEmpty()) branches.add(expense.branch) }
+            // Add from trainees
+            trainees.forEach { trainee -> if (trainee.branch.isNotEmpty()) branches.add(trainee.branch) }
+            // Add from employees (coaches)
+            coaches.forEach { coach -> if (coach.branch.isNotEmpty()) branches.add(coach.branch) }
             branches.sorted().toList()
         } catch (e: Exception) {
             android.util.Log.e("ExpensesFragment", "Error getting branches: ${e.message}")
-            emptyList()
+            listOf("نادي التوكيلات", "نادي اليخت", "المدينة الرياضية")
         }
     }
 
@@ -342,14 +355,8 @@ class ExpensesFragment : Fragment() {
             val manualExpenses = calculateManualExpensesForBranch(branchName)
             val autoSalaries = calculateAutoSalariesForBranch(branchName)
             val totalIncome = calculateTotalIncomeForBranch(branchName)
-            
-            // Calculate total amount (income - expenses)
             val totalAmount = totalIncome - (manualExpenses + autoSalaries)
-            
-            val expenseCount = expenses.count { 
-                isExpenseInMonth(it, selectedMonth) && it.branch == branchName 
-            }
-            
+            val expenseCount = expenses.count { isExpenseInMonth(it, selectedMonth) && it.branch == branchName }
             BranchData(
                 manualExpenses = manualExpenses,
                 autoSalaries = autoSalaries,
@@ -365,11 +372,11 @@ class ExpensesFragment : Fragment() {
 
     private fun calculateManualExpensesForBranch(branchName: String): Double {
         return try {
-            expenses.filter { 
-                isExpenseInMonth(it, selectedMonth) && 
-                it.branch == branchName && 
-                it.type == "EXPENSE" && 
-                !it.isAutoCalculated 
+            expenses.filter {
+                isExpenseInMonth(it, selectedMonth) &&
+                it.branch == branchName &&
+                it.type == "EXPENSE" &&
+                !it.isAutoCalculated
             }.sumOf { it.amount }
         } catch (e: Exception) {
             android.util.Log.e("ExpensesFragment", "Error calculating manual expenses for $branchName: ${e.message}")
@@ -380,9 +387,7 @@ class ExpensesFragment : Fragment() {
     private fun calculateAutoSalariesForBranch(branchName: String): Double {
         return try {
             coaches.filter { it.branch == branchName }
-                .sumOf { coach ->
-                    calculateCoachSalary(coach)
-                }
+                .sumOf { coach -> calculateCoachSalary(coach) }
         } catch (e: Exception) {
             android.util.Log.e("ExpensesFragment", "Error calculating auto salaries for $branchName: ${e.message}")
             0.0
@@ -391,8 +396,12 @@ class ExpensesFragment : Fragment() {
 
     private fun calculateTotalIncomeForBranch(branchName: String): Double {
         return try {
-            trainees.filter { it.branch == branchName }
-                .sumOf { it.paymentAmount }
+            // Use recorded income entries for the selected month (e.g., trainee payments)
+            expenses.filter { 
+                isExpenseInMonth(it, selectedMonth) &&
+                it.branch == branchName &&
+                it.type == "INCOME"
+            }.sumOf { it.amount }
         } catch (e: Exception) {
             android.util.Log.e("ExpensesFragment", "Error calculating total income for $branchName: ${e.message}")
             0.0
@@ -664,10 +673,9 @@ class ExpensesFragment : Fragment() {
 
     private fun updateExpensesForMonth() {
         try {
-            updateTotals()
-            // Update the comprehensive adapter
+            // Update adapter's month and refresh totals
             (currentAdapter as? ExpensesAdapter)?.updateSelectedMonth(selectedMonth)
-            android.util.Log.d("ExpensesFragment", "Updated expenses for month: $selectedMonth")
+            updateTotals()
         } catch (e: Exception) {
             android.util.Log.e("ExpensesFragment", "Error updating expenses for month: ${e.message}")
         }
@@ -675,33 +683,28 @@ class ExpensesFragment : Fragment() {
 
     private fun updateTotals() {
         try {
-            val monthExpenses = expenses.filter { 
-                isExpenseInMonth(it, selectedMonth) && it.type == "EXPENSE"
+            // Aggregate per-branch for selected month to drive top counters
+            val branches = getBranches()
+            var totalIncome = 0.0
+            var totalManual = 0.0
+            var totalAutoSalaries = 0.0
+            branches.forEach { branch ->
+                val data = getBranchData(branch)
+                totalIncome += data.totalIncome
+                totalManual += data.manualExpenses
+                totalAutoSalaries += data.autoSalaries
             }
-            val monthIncome = expenses.filter { 
-                isExpenseInMonth(it, selectedMonth) && it.type == "INCOME"
-            }
-            
-            val totalExpenses = monthExpenses.sumOf { it.amount }
-            val totalIncome = monthIncome.sumOf { it.amount }
+            val totalExpenses = totalManual + totalAutoSalaries
             val netAmount = totalIncome - totalExpenses
-            
-            // Update the order: Total Income first, then Total Expenses, then Net
+
             tvTotalIncome?.text = "Total Income: $${String.format("%.2f", totalIncome)}"
             tvTotalExpenses?.text = "Total Expenses: $${String.format("%.2f", totalExpenses)}"
             tvNetAmount?.text = "Net: $${String.format("%.2f", netAmount)}"
-            
-            // Set colors based on net amount
+
             tvNetAmount?.let { netTextView ->
-                val netColor = if (netAmount >= 0) {
-                    requireContext().getColor(R.color.success_light)
-                } else {
-                    requireContext().getColor(R.color.error_light)
-                }
+                val netColor = if (netAmount >= 0) requireContext().getColor(R.color.success_light) else requireContext().getColor(R.color.error_light)
                 netTextView.setTextColor(netColor)
             }
-            
-            android.util.Log.d("ExpensesFragment", "Totals updated - Income: $totalIncome, Expenses: $totalExpenses, Net: $netAmount")
         } catch (e: Exception) {
             android.util.Log.e("ExpensesFragment", "Error updating totals: ${e.message}")
         }
@@ -812,9 +815,7 @@ class ExpensesFragment : Fragment() {
     }
 
     companion object {
-        fun newInstance(): ExpensesFragment {
-            return ExpensesFragment()
-        }
+        fun newInstance(): ExpensesFragment = ExpensesFragment()
     }
 }
 

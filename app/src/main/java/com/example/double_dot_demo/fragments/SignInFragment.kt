@@ -30,30 +30,35 @@ class SignInFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         
-        // Initialize ViewModel
         viewModel = ViewModelProvider(requireActivity())[SignInViewModel::class.java]
+        
+        // Set the provided logo drawable (replace existing)
+        binding.ivLogo.setImageResource(R.drawable.double_dot_logo) // add drawable to project
         
         setupViews()
         observeViewModel()
     }
     
     private fun setupViews() {
-        binding.btnSignIn.setOnClickListener {
-            performSignIn()
-        }
+        binding.btnSignIn.setOnClickListener { performSignIn() }
         
         binding.tvForgotPassword.setOnClickListener {
-            // TODO: Implement forgot password functionality
-            Toast.makeText(requireContext(), "Forgot password feature coming soon", Toast.LENGTH_SHORT).show()
+            val email = binding.etEmail.text.toString().trim()
+            if (email.isEmpty()) {
+                Toast.makeText(requireContext(), "Enter your email to reset password", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            viewModel.sendPasswordReset(email) { ok, error ->
+                if (ok) Toast.makeText(requireContext(), "Password reset email sent", Toast.LENGTH_LONG).show()
+                else Toast.makeText(requireContext(), error ?: "Failed to send reset email", Toast.LENGTH_LONG).show()
+            }
         }
     }
     
     private fun observeViewModel() {
         viewModel.signInState.observe(viewLifecycleOwner) { state ->
             when (state) {
-                is SignInViewModel.SignInState.Loading -> {
-                    showLoading(true)
-                }
+                is SignInViewModel.SignInState.Loading -> showLoading(true)
                 is SignInViewModel.SignInState.Success -> {
                     showLoading(false)
                     navigateToDashboard(state.userRole)
@@ -97,10 +102,8 @@ class SignInFragment : Fragment() {
             return false
         }
         
-        // Clear errors
         binding.tilEmail.error = null
         binding.tilPassword.error = null
-        
         return true
     }
     
@@ -114,12 +117,8 @@ class SignInFragment : Fragment() {
     }
     
     private fun navigateToDashboard(userRole: String) {
-        try {
-            // This will be handled by the MainActivity
-            (activity as? MainActivity)?.navigateToDashboard(userRole)
-        } catch (e: Exception) {
-            Toast.makeText(requireContext(), "Navigation error: ${e.message}", Toast.LENGTH_LONG).show()
-        }
+        try { (activity as? MainActivity)?.navigateToDashboard(userRole) }
+        catch (e: Exception) { Toast.makeText(requireContext(), "Navigation error: ${e.message}", Toast.LENGTH_LONG).show() }
     }
     
     override fun onDestroyView() {
@@ -128,8 +127,6 @@ class SignInFragment : Fragment() {
     }
     
     companion object {
-        fun newInstance(): SignInFragment {
-            return SignInFragment()
-        }
+        fun newInstance(): SignInFragment { return SignInFragment() }
     }
 } 
