@@ -22,7 +22,7 @@
             android:text="Coach Name"
             android:textSize="18sp"
             android:textStyle="bold"
-            android:textColor="@color/black"
+            android:textColor="?attr/colorOnSurface"
             android:layout_marginBottom="8dp" />
 
         <!-- Branch -->
@@ -103,7 +103,7 @@
                 android:text="Undo"
                 android:textSize="8sp"
                 android:background="@drawable/undo_button_background"
-                android:textColor="@android:color/black"
+                android:textColor="?attr/colorOnSurface"
                 android:gravity="center"
                 android:visibility="gone"
                 android:layout_marginStart="8dp"

@@ -3,12 +3,6 @@
     xmlns:app="http://schemas.android.com/apk/res-auto">
     
     <item
-        android:id="@+id/action_profile"
-        android:icon="@drawable/ic_person"
-        android:title="Profile"
-        app:showAsAction="ifRoom" />
-    
-    <item
         android:id="@+id/action_sign_out"
         android:icon="@drawable/ic_logout"
         android:title="Sign Out"

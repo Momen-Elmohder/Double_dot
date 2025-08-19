@@ -102,7 +102,7 @@
                     android:layout_marginEnd="4dp"
                     android:contentDescription="Show Details"
                     android:visibility="visible"
-                    android:tint="@android:color/black" />
+                    app:tint="?attr/colorOnSurface" />
 
                 <ImageView
                     android:id="@+id/btnRenew"
@@ -114,7 +114,7 @@
                     android:layout_marginEnd="4dp"
                     android:contentDescription="Renew Membership"
                     android:visibility="visible"
-                    android:tint="@android:color/black" />
+                    app:tint="?attr/colorOnSurface" />
 
                 <ImageView
                     android:id="@+id/btnFreeze"
@@ -126,7 +126,7 @@
                     android:layout_marginEnd="4dp"
                     android:contentDescription="Freeze/Unfreeze Trainee"
                     android:visibility="visible"
-                    android:tint="@android:color/black" />
+                    app:tint="?attr/colorOnSurface" />
 
                 <ImageView
                     android:id="@+id/btnEdit"
@@ -138,7 +138,7 @@
                     android:layout_marginEnd="4dp"
                     android:contentDescription="Edit Trainee"
                     android:visibility="visible"
-                    android:tint="@android:color/black" />
+                    app:tint="?attr/colorOnSurface" />
 
                 <ImageView
                     android:id="@+id/btnDelete"
@@ -149,7 +149,7 @@
                     android:padding="2dp"
                     android:contentDescription="Delete Trainee"
                     android:visibility="visible"
-                    android:tint="@android:color/black" />
+                    app:tint="?attr/colorOnSurface" />
 
             </LinearLayout>
 

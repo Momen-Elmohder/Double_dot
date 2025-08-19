@@ -76,6 +76,9 @@
             android:hint="Phone Number"
             app:startIconDrawable="@drawable/ic_person"
             app:startIconTint="?attr/colorPrimary"
+            app:endIconMode="custom"
+            app:endIconDrawable="@drawable/ic_person"
+            app:endIconTint="?attr/colorPrimary"
             app:boxStrokeColor="?attr/colorPrimary"
             app:hintTextColor="?attr/colorPrimary"
             style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">

@@ -83,15 +83,8 @@ class SalaryAdapter(
     
     private fun getMonthDisplayName(monthKey: String): String {
         return try {
-            val parts = monthKey.split("-")
-            val year = parts[0].toInt()
-            val month = parts[1].toInt() - 1
-            
-            val calendar = Calendar.getInstance()
-            calendar.set(year, month, 1)
-            
-            val format = SimpleDateFormat("MMM yyyy", Locale.getDefault())
-            format.format(calendar.time)
+            // The monthKey is now already in "MMMM yyyy" format, so just return it
+            monthKey
         } catch (e: Exception) {
             monthKey
         }

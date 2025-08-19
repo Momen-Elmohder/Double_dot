@@ -38,7 +38,7 @@ class TraineeNamesDialog(
                     setTextColor(ContextCompat.getColor(context, android.R.color.black))
                     setPadding(16, 12, 16, 12)
                     textAlignment = TextView.TEXT_ALIGNMENT_VIEW_START
-                    layoutDirection = android.util.LayoutDirection.RTL
+                    layoutDirection = android.view.View.LAYOUT_DIRECTION_RTL
                     setTypeface(null, Typeface.NORMAL)
                 }
                 layout.addView(nameView)
@@ -62,7 +62,7 @@ class TraineeNamesDialog(
                 textSize = 18f
                 setTextColor(Color.GRAY)
                 textAlignment = TextView.TEXT_ALIGNMENT_CENTER
-                layoutDirection = android.util.LayoutDirection.RTL
+                layoutDirection = android.view.View.LAYOUT_DIRECTION_RTL
                 setPadding(16, 32, 16, 32)
                 setTypeface(null, Typeface.ITALIC)
             }

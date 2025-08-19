@@ -198,33 +198,118 @@ class ExpensesFragment : Fragment() {
             val pdf = android.graphics.pdf.PdfDocument()
             val paint = android.graphics.Paint()
             val bold = android.graphics.Paint().apply { textSize = 16f; isFakeBoldText = true }
-            val pageInfo = android.graphics.pdf.PdfDocument.PageInfo.Builder(595, 842, 1).create()
-            val page = pdf.startPage(pageInfo)
-            var y = 40
+            val titleBold = android.graphics.Paint().apply { textSize = 18f; isFakeBoldText = true }
+            val smallPaint = android.graphics.Paint().apply { textSize = 10f }
+            
+            var pageNumber = 1
+            var page = createNewPage(pdf, pageNumber, month, titleBold, paint)
+            var y = 80
 
-            fun draw(text: String, isBold: Boolean = false) {
-                val p = if (isBold) bold else paint
-                val size = if (isBold) 16f else 14f
+            fun draw(text: String, isBold: Boolean = false, isSmall: Boolean = false) {
+                val p = when {
+                    isBold -> bold
+                    isSmall -> smallPaint
+                    else -> paint
+                }
+                val size = when {
+                    isBold -> 16f
+                    isSmall -> 10f
+                    else -> 14f
+                }
                 p.textSize = size
                 page.canvas.drawText(text, 40f, y.toFloat(), p)
-                y += if (isBold) 20 else 18
+                y += if (isSmall) 12 else if (isBold) 20 else 18
             }
 
-            draw("Double Dot Academy - Expenses Report", true)
-            draw("Month: $month")
-            y += 6
+            fun checkNewPage() {
+                if (y > 800) {
+                    pdf.finishPage(page)
+                    pageNumber++
+                    page = createNewPage(pdf, pageNumber, month, titleBold, paint)
+                    y = 80
+                }
+            }
+
             draw("Summary", true)
             draw("Total Income: ${String.format("%.2f", totalIncome)}")
             draw("Total Expenses: ${String.format("%.2f", totalExpenses)}")
             draw("Net: ${String.format("%.2f", netAmount)}", true)
-            y += 6
+            y += 10
 
+            // Branch Details with detailed breakdown
             draw("Branch Details", true)
             val branches = getBranches()
-            branches.forEach { br ->
-                val d = getBranchData(br)
-                draw("$br  |  Income: ${String.format("%.2f", d.totalIncome)}  |  Manual: ${String.format("%.2f", d.manualExpenses)}  |  Salaries: ${String.format("%.2f", d.autoSalaries)}  |  Net: ${String.format("%.2f", d.totalAmount)}")
-                if (y > 800) { pdf.finishPage(page); val pinfo = android.graphics.pdf.PdfDocument.PageInfo.Builder(595, 842, pdf.pages.size + 1).create(); val newPage = pdf.startPage(pinfo); y = 40; draw("Branch Details", true); }
+            branches.forEach { branch ->
+                checkNewPage()
+                draw("$branch", true)
+                
+                val branchData = getBranchData(branch)
+                draw("  Income: ${String.format("%.2f", branchData.totalIncome)}")
+                draw("  Manual Expenses: ${String.format("%.2f", branchData.manualExpenses)}")
+                draw("  Auto Salaries: ${String.format("%.2f", branchData.autoSalaries)}")
+                draw("  Net: ${String.format("%.2f", branchData.totalAmount)}", true)
+                
+                // Add detailed breakdown for each branch
+                val branchExpenses = expenses.filter { 
+                    isExpenseInMonth(it, month) && it.branch == branch 
+                }
+                val branchTrainees = trainees.filter { it.branch == branch }
+                val branchCoaches = coaches.filter { it.branch == branch }
+                
+                // Income details
+                if (branchTrainees.isNotEmpty()) {
+                    checkNewPage()
+                    draw("  Income Details:", true)
+                    branchTrainees.forEach { trainee ->
+                        checkNewPage()
+                        draw("    ${trainee.name} - ${String.format("%.2f", trainee.paymentAmount)}", false, true)
+                    }
+                }
+                
+                // Manual expenses details
+                val manualExpenses = branchExpenses.filter { 
+                    it.type == "EXPENSE" && !it.isAutoCalculated 
+                }
+                if (manualExpenses.isNotEmpty()) {
+                    checkNewPage()
+                    draw("  Manual Expenses:", true)
+                    manualExpenses.forEach { expense ->
+                        checkNewPage()
+                        draw("    ${expense.title} - ${String.format("%.2f", expense.amount)}", false, true)
+                        if (expense.description.isNotEmpty()) {
+                            draw("      ${expense.description}", false, true)
+                        }
+                    }
+                }
+                
+                // Salary details
+                if (branchCoaches.isNotEmpty()) {
+                    checkNewPage()
+                    draw("  Salary Details:", true)
+                    branchCoaches.forEach { coach ->
+                        checkNewPage()
+                        val coachTrainees = trainees.filter { it.coachId == coach.id }
+                        val totalPayments = coachTrainees.sumOf { it.paymentAmount }
+                        val baseSalary = coachTrainees.sumOf { trainee ->
+                            calculateCommission(coach.branch, trainee.paymentAmount)
+                        }
+                        val (presentCount, absentCount) = calculateAttendanceStats(coach)
+                        val totalDays = presentCount + absentCount
+                        val absencePercent = if (totalDays > 0) {
+                            (absentCount.toDouble() / totalDays.toDouble()) * 100.0
+                        } else {
+                            0.0
+                        }
+                        val deduction = baseSalary * (absencePercent / 100.0)
+                        val finalSalary = baseSalary - deduction
+                        
+                        draw("    ${coach.name} - ${String.format("%.2f", finalSalary)}", false, true)
+                        draw("      Trainees: ${coachTrainees.size}, Base: ${String.format("%.2f", baseSalary)}", false, true)
+                        draw("      Attendance: $presentCount present, $absentCount absent", false, true)
+                    }
+                }
+                
+                y += 10
             }
 
             pdf.finishPage(page)
@@ -235,7 +320,14 @@ class ExpensesFragment : Fragment() {
                 put(MediaStore.Downloads.RELATIVE_PATH, android.os.Environment.DIRECTORY_DOWNLOADS)
             }
             val resolver = requireContext().contentResolver
-            val uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+            val uri = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+            } else {
+                // Fallback for older Android versions - save to app's internal storage
+                val file = java.io.File(requireContext().getExternalFilesDir(android.os.Environment.DIRECTORY_DOWNLOADS), fileName)
+                file.outputStream().use { out -> pdf.writeTo(out) }
+                null // We've already written the file, so return null to skip the resolver.insert
+            }
             if (uri == null) { android.widget.Toast.makeText(context, "Save failed", android.widget.Toast.LENGTH_SHORT).show(); return }
             resolver.openOutputStream(uri)?.use { out -> pdf.writeTo(out) }
             pdf.close()
@@ -245,6 +337,22 @@ class ExpensesFragment : Fragment() {
             android.widget.Toast.makeText(context, "Export failed: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
         }
     }
+    
+    private fun createNewPage(pdf: android.graphics.pdf.PdfDocument, pageNumber: Int, month: String, titleBold: android.graphics.Paint, paint: android.graphics.Paint): android.graphics.pdf.PdfDocument.Page {
+        val pageInfo = android.graphics.pdf.PdfDocument.PageInfo.Builder(595, 842, pageNumber).create()
+        val page = pdf.startPage(pageInfo)
+        
+        // Draw header
+        titleBold.textSize = 18f
+        page.canvas.drawText("Double Dot Academy - Expenses Report", 40f, 30f, titleBold)
+        paint.textSize = 14f
+        page.canvas.drawText("Month: $month", 40f, 50f, paint)
+        page.canvas.drawText("Page: $pageNumber", 500f, 50f, paint)
+        
+        return page
+    }
+    
+
 
     private fun generateCSVContent(): String {
         return try {
@@ -454,6 +562,15 @@ class ExpensesFragment : Fragment() {
         } catch (e: Exception) {
             android.util.Log.e("ExpensesFragment", "Error calculating attendance stats: ${e.message}")
             Pair(0, 0)
+        }
+    }
+    
+    private fun calculateCommission(branch: String, traineeFee: Double): Double {
+        return when (branch) {
+            "نادي التوكيلات" -> traineeFee * 0.40 // 40%
+            "نادي اليخت" -> traineeFee * 0.30 // 30%
+            "المدينة الرياضية" -> 200.0 // Fixed 200 pounds
+            else -> traineeFee * 0.40 // Default to 40%
         }
     }
 

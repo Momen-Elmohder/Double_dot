@@ -15,7 +15,7 @@ import java.text.SimpleDateFormat
 import java.util.*
 
 class TraineeAdapter(
-    private val isCoachView: Boolean = false,
+    private var isCoachView: Boolean = false,
     private val onEditClick: (Trainee) -> Unit,
     private val onDeleteClick: (Trainee) -> Unit,
     private val onRenewClick: (Trainee) -> Unit,
@@ -90,11 +90,18 @@ class TraineeAdapter(
                 // Full view for head coaches and admins
                 holder.tvDetails.text = buildDetailsText(trainee)
                 holder.tvStatus.text = (trainee.status ?: "unknown").replaceFirstChar { it.uppercase() }
-                holder.tvPaymentStatus.text = if (trainee.isPaid) "Paid" else "Unpaid"
+                
+                // Payment status: show only when paid; hide when unpaid
+                if (trainee.isPaid) {
+                    holder.tvPaymentStatus.visibility = View.VISIBLE
+                    holder.tvPaymentStatus.text = "Paid"
+                    setPaymentStatusColor(holder.tvPaymentStatus, true)
+                } else {
+                    holder.tvPaymentStatus.visibility = View.GONE
+                }
                 
                 // Set status color safely
                 setStatusColor(holder.tvStatus, trainee.status)
-                setPaymentStatusColor(holder.tvPaymentStatus, trainee.isPaid)
 
                 // Show/hide buttons based on sessions
                 holder.btnRenew.visibility = View.VISIBLE
@@ -283,9 +290,17 @@ class TraineeAdapter(
         }
     }
 
+    fun setIsCoachView(isCoach: Boolean) {
+        android.util.Log.d("TraineeAdapter", "setIsCoachView called: $isCoach")
+        if (this.isCoachView != isCoach) {
+            this.isCoachView = isCoach
+            notifyDataSetChanged()
+        }
+    }
+
     fun updateCoachView(isCoach: Boolean) {
-        android.util.Log.d("TraineeAdapter", "Updating coach view: $isCoach")
-        // This function is no longer needed as isCoachView is passed to the constructor
+        // Backwards-compatible alias
+        setIsCoachView(isCoach)
     }
 }
 

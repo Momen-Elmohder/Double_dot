@@ -20,8 +20,11 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = true
-            isShrinkResources = true
+            // Temporarily disable shrinking/obfuscation to avoid runtime issues with
+            // reflection-based libraries (e.g., Firebase Firestore) in release builds.
+            // Once verified, we can re-enable with proper ProGuard rules.
+            isMinifyEnabled = false
+            isShrinkResources = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -68,5 +71,10 @@ dependencies {
     implementation("com.github.bumptech.glide:glide:4.16.0")
     annotationProcessor("com.github.bumptech.glide:compiler:4.16.0")
     
-    // Testing dependencies removed for production build readiness
+    // Unit tests
+    testImplementation("junit:junit:4.13.2")
+
+    // Instrumented Android tests
+    androidTestImplementation("androidx.test.ext:junit:1.2.1")
+    androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")
 }

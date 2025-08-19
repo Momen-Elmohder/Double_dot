@@ -11,7 +11,7 @@ data class Expense(
     val description: String = "",
     val branch: String = "",
     val date: Timestamp = Timestamp.now(),
-    val month: String = "", // Format: "YYYY-MM" (e.g., "2024-01")
+    val month: String = "", // Format: "January 2024"
     val year: Int = 0,
     val createdBy: String = "",
     val createdByName: String = "",

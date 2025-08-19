@@ -9,6 +9,7 @@ import com.example.double_dot_demo.R
 import com.example.double_dot_demo.models.Employee
 import com.example.double_dot_demo.models.Expense
 import com.example.double_dot_demo.models.Trainee
+import com.example.double_dot_demo.dialogs.ExpenseDetailsDialog
 import com.google.android.material.card.MaterialCardView
 import java.text.NumberFormat
 import java.util.*
@@ -60,6 +61,12 @@ class ExpensesAdapter(
                     holder.itemView.context.getColor(R.color.error_light)
                 }
                 holder.tvTotalAmount.setTextColor(totalColor)
+                
+                // Add long press listener to show details
+                holder.cardView.setOnLongClickListener {
+                    showExpenseDetails(branchName, holder.itemView.context)
+                    true
+                }
             }
         } catch (e: Exception) {
             android.util.Log.e("ExpensesAdapter", "Error binding view holder: ${e.message}")
@@ -178,11 +185,10 @@ class ExpensesAdapter(
             // Find all trainees assigned to this coach
             val coachTrainees = trainees.filter { it.coachId == coach.id }
             
-            // Calculate total payments from trainees
-            val totalPayments = coachTrainees.sumOf { it.paymentAmount }
-            
-            // Calculate base salary (40% of total payments)
-            val baseSalary = totalPayments * 0.4
+            // Calculate commission based on branch
+            val totalPayments = coachTrainees.sumOf { trainee ->
+                calculateCommission(coach.branch, trainee.paymentAmount)
+            }
             
             // Calculate attendance stats
             val (presentCount, absentCount) = calculateAttendanceStats(coach)
@@ -196,13 +202,22 @@ class ExpensesAdapter(
             }
             
             // Calculate deduction
-            val deduction = baseSalary * (absencePercent / 100.0)
+            val deduction = totalPayments * (absencePercent / 100.0)
             
             // Calculate final salary
-            baseSalary - deduction
+            totalPayments - deduction
         } catch (e: Exception) {
             android.util.Log.e("ExpensesAdapter", "Error calculating coach salary: ${e.message}")
             0.0
+        }
+    }
+    
+    private fun calculateCommission(branch: String, traineeFee: Double): Double {
+        return when (branch) {
+            "نادي التوكيلات" -> traineeFee * 0.40 // 40%
+            "نادي اليخت" -> traineeFee * 0.30 // 30%
+            "المدينة الرياضية" -> 200.0 // Fixed 200 pounds
+            else -> traineeFee * 0.40 // Default to 40%
         }
     }
 
@@ -240,4 +255,20 @@ class ExpensesAdapter(
         val totalAmount: Double = 0.0,
         val expenseCount: Int = 0
     )
+    
+    private fun showExpenseDetails(branchName: String, context: android.content.Context) {
+        try {
+            val dialog = ExpenseDetailsDialog(
+                context = context,
+                branchName = branchName,
+                selectedMonth = selectedMonth,
+                expenses = expenses,
+                trainees = trainees,
+                coaches = coaches
+            )
+            dialog.show()
+        } catch (e: Exception) {
+            android.util.Log.e("ExpensesAdapter", "Error showing expense details: ${e.message}")
+        }
+    }
 } 

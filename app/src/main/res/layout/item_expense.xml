@@ -37,7 +37,7 @@
                 android:text="Expense Title"
                 android:textSize="16sp"
                 android:textStyle="bold"
-                android:textColor="@color/black"
+                android:textColor="?attr/colorOnSurface"
                 android:maxLines="1"
                 android:ellipsize="end" />
 
@@ -75,7 +75,7 @@
                 android:text="$0.00"
                 android:textSize="18sp"
                 android:textStyle="bold"
-                android:textColor="@color/black" />
+                android:textColor="?attr/colorOnSurface" />
 
             <TextView
                 android:id="@+id/tvExpenseDescription"

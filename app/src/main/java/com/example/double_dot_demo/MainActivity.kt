@@ -14,6 +14,8 @@ import com.example.double_dot_demo.fragments.TraineesFragment
 import com.google.android.material.bottomnavigation.BottomNavigationView
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.example.double_dot_demo.utils.NavigationUtils
+import com.example.double_dot_demo.utils.ButtonUtils
 
 class MainActivity : AppCompatActivity() {
     
@@ -28,8 +30,8 @@ class MainActivity : AppCompatActivity() {
         setupGlobalExceptionHandler()
         
         try {
-            // Force the app to follow system night mode
-            AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
+            // Force light mode regardless of system setting
+            AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
             
             binding = ActivityMainBinding.inflate(layoutInflater)
             setContentView(binding.root)
@@ -47,43 +49,52 @@ class MainActivity : AppCompatActivity() {
             Toast.makeText(this, "Error initializing app: ${e.message}", Toast.LENGTH_LONG).show()
         }
     }
-    
+
     private fun setupBottomNavigation() {
         try {
-            bottomNavigation = binding.bottomNavigation!!
-            
-            bottomNavigation.setOnItemSelectedListener { menuItem ->
-                try {
-                                    when (menuItem.itemId) {
-                    R.id.nav_calendar -> {
-                        loadFragment(AttendanceFragment())
-                        true
-                    }
-                        R.id.nav_trainees -> {
-                            loadFragment(TraineesFragment().apply {
-                                arguments = Bundle().apply {
-                                    putString("user_role", "coach") // Default role for MainActivity
-                                }
-                            })
-                            true
+            val nav = binding.bottomNavigation
+            if (nav != null) {
+                bottomNavigation = nav
+
+                bottomNavigation.setOnItemSelectedListener { menuItem ->
+                    // Prevent rapid navigation
+                    if (NavigationUtils.isNavigationInProgress()) return@setOnItemSelectedListener false
+
+                    try {
+                        when (menuItem.itemId) {
+                            R.id.nav_calendar -> {
+                                loadFragment(AttendanceFragment())
+                                true
+                            }
+                            R.id.nav_trainees -> {
+                                loadFragment(TraineesFragment().apply {
+                                    arguments = Bundle().apply {
+                                        putString("user_role", "coach") // Default role for MainActivity
+                                    }
+                                })
+                                true
+                            }
+                            R.id.nav_employees -> {
+                                loadFragment(EmployeesFragment())
+                                true
+                            }
+                            else -> false
                         }
-                        R.id.nav_employees -> {
-                            loadFragment(EmployeesFragment())
-                            true
-                        }
-                        else -> false
+                    } catch (e: Exception) {
+                        android.util.Log.e("MainActivity", "Error in navigation: ${e.message}")
+                        NavigationUtils.safeShowToast(this, "Navigation error: ${e.message}")
+                        false
                     }
-                } catch (e: Exception) {
-                    android.util.Log.e("MainActivity", "Error in navigation: ${e.message}")
-                    Toast.makeText(this, "Navigation error: ${e.message}", Toast.LENGTH_LONG).show()
-                    false
                 }
+            } else {
+                android.util.Log.e("MainActivity", "BottomNavigationView not found in this layout.")
             }
         } catch (e: Exception) {
             android.util.Log.e("MainActivity", "Error setting up bottom navigation: ${e.message}")
             Toast.makeText(this, "Error setting up navigation: ${e.message}", Toast.LENGTH_LONG).show()
         }
     }
+
     
     private fun checkCurrentUser() {
         val currentUser = auth.currentUser
@@ -182,14 +193,7 @@ class MainActivity : AppCompatActivity() {
     }
     
     private fun loadFragment(fragment: Fragment) {
-        try {
-            supportFragmentManager.beginTransaction()
-                .replace(R.id.fragmentContainer, fragment)
-                .commit()
-        } catch (e: Exception) {
-            android.util.Log.e("MainActivity", "Error loading fragment: ${e.message}")
-            Toast.makeText(this, "Error loading page: ${e.message}", Toast.LENGTH_LONG).show()
-        }
+        NavigationUtils.safeLoadFragment(this, fragment, R.id.fragmentContainer, false)
     }
     
     private fun hideBottomNavigation() {
@@ -198,6 +202,18 @@ class MainActivity : AppCompatActivity() {
     
     private fun showBottomNavigation() {
         bottomNavigation.visibility = android.view.View.VISIBLE
+    }
+
+    override fun onPause() {
+        super.onPause()
+        // Cancel any pending operations
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        // Clean up resources
+        ButtonUtils.cancelAllClicks()
+        NavigationUtils.cancelNavigation()
     }
 
     private fun setupGlobalExceptionHandler() {

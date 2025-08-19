@@ -17,6 +17,7 @@ import com.example.double_dot_demo.R
 import com.example.double_dot_demo.adapters.SalaryAdapter
 import com.example.double_dot_demo.models.Salary
 import com.example.double_dot_demo.utils.SalaryManager
+import com.example.double_dot_demo.utils.MonthFormatMigration
 import kotlinx.coroutines.launch
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
@@ -68,9 +69,22 @@ class SalaryFragment : Fragment() {
             
             lifecycleScope.launch {
                 try {
+                    // Check if migration is needed and run it
+                    val migrationNeeded = MonthFormatMigration.isMigrationNeeded()
+                    if (migrationNeeded) {
+                        android.util.Log.d("SalaryFragment", "Running month format migration...")
+                        val migrationSuccess = MonthFormatMigration.migrateSalaryMonthFormats()
+                        android.util.Log.d("SalaryFragment", "Migration completed: $migrationSuccess")
+                        if (migrationSuccess) {
+                            showToast("Salary data updated successfully")
+                        }
+                    }
+                    
                     val rolled = salaryManager.performMonthlyRolloverIfNeeded()
                     android.util.Log.d("SalaryFragment", "Monthly rollover executed: $rolled")
-                } catch (_: Exception) {}
+                } catch (e: Exception) {
+                    android.util.Log.e("SalaryFragment", "Error in initialization: ${e.message}")
+                }
             }
             
             setupSalariesListener()
@@ -109,9 +123,19 @@ class SalaryFragment : Fragment() {
             }
         })
 
-        // Debug: long press toolbar to dump db
+        // Debug: long press toolbar to dump db and run migration
         view.setOnLongClickListener {
-            debugDatabaseState()
+            lifecycleScope.launch {
+                try {
+                    android.util.Log.d("SalaryFragment", "Manual migration triggered")
+                    val success = MonthFormatMigration.migrateSalaryMonthFormats()
+                    showToast("Migration ${if (success) "completed" else "failed"}")
+                    debugDatabaseState()
+                } catch (e: Exception) {
+                    android.util.Log.e("SalaryFragment", "Manual migration error: ${e.message}")
+                    showToast("Migration error: ${e.message}")
+                }
+            }
             true
         }
     }
@@ -245,8 +269,14 @@ class SalaryFragment : Fragment() {
                 put(MediaStore.Downloads.RELATIVE_PATH, android.os.Environment.DIRECTORY_DOWNLOADS)
             }
             val resolver = requireContext().contentResolver
-            val uri = MediaStore.Downloads.EXTERNAL_CONTENT_URI
-            val itemUri = resolver.insert(uri, contentValues)
+            val itemUri = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, contentValues)
+            } else {
+                // Fallback for older Android versions - save to app's internal storage
+                val file = java.io.File(requireContext().getExternalFilesDir(android.os.Environment.DIRECTORY_DOWNLOADS), fileName)
+                file.outputStream().use { out -> pdf.writeTo(out) }
+                null // We've already written the file, so return null to skip the resolver.insert
+            }
             if (itemUri == null) { Toast.makeText(requireContext(), "Save failed", Toast.LENGTH_SHORT).show(); return }
             resolver.openOutputStream(itemUri)?.use { out -> pdf.writeTo(out) }
             pdf.close()
@@ -260,7 +290,15 @@ class SalaryFragment : Fragment() {
     private fun showToast(message: String) { Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show() }
 
     private fun debugDatabaseState() {
-        lifecycleScope.launch { try { salaryManager.debugDatabaseState() } catch (_: Exception) {} }
+        lifecycleScope.launch { 
+            try { 
+                // Test month format normalization
+                MonthFormatMigration.testMonthFormatNormalization()
+                salaryManager.debugDatabaseState() 
+            } catch (e: Exception) {
+                android.util.Log.e("SalaryFragment", "Debug error: ${e.message}")
+            } 
+        }
     }
 
     companion object { fun newInstance(): SalaryFragment = SalaryFragment() }

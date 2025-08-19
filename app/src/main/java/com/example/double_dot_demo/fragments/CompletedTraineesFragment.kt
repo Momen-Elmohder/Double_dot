@@ -340,9 +340,9 @@ class CompletedTraineesFragment : Fragment() {
                 }
             }
 
-            trainees.clear()
-            trainees.addAll(sortedList)
-            adapter.notifyDataSetChanged()
+            // Update the adapter with the new sorted list
+            // TraineeAdapter extends ListAdapter, so we must use submitList
+            adapter.submitList(sortedList)
 
         } catch (e: Exception) {
             android.util.Log.e("CompletedTraineesFragment", "Error filtering and sorting: ${e.message}")

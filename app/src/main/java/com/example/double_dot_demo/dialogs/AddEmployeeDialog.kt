@@ -20,9 +20,20 @@ class AddEmployeeDialog(
     private val firestore = FirebaseFirestore.getInstance()
 
     private var onSaveClickListener: ((Employee) -> Unit)? = null
+    private var onPickPhoneClickListener: (() -> Unit)? = null
 
     fun setOnSaveClickListener(listener: (Employee) -> Unit) {
         onSaveClickListener = listener
+    }
+
+    fun setOnPickPhoneClickListener(listener: () -> Unit) {
+        onPickPhoneClickListener = listener
+    }
+
+    fun setPickedPhoneNumber(number: String) {
+        if (::binding.isInitialized) {
+            binding.etPhone.setText(number)
+        }
     }
 
     fun show() {
@@ -58,6 +69,11 @@ class AddEmployeeDialog(
 
         binding.btnCancel.setOnClickListener { dialog.dismiss() }
         binding.btnSave.setOnClickListener { saveEmployee() }
+
+        // contact picker end icon
+        binding.tilPhone.setEndIconOnClickListener {
+            try { onPickPhoneClickListener?.invoke() } catch (_: Exception) {}
+        }
     }
 
     private fun saveEmployee() {

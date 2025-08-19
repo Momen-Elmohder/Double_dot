@@ -47,7 +47,7 @@ class SalaryDetailsDialog(
         addDivider(mainLayout)
         
         // Salary breakdown
-        addSectionHeader(mainLayout, "💰 Salary Breakdown")
+        addSectionHeader(mainLayout, "Salary Breakdown")
         val totalIncome = if (salary.totalPayments > 0) salary.totalPayments / 0.4 else 0.0
         addAmountSection(mainLayout, "Total Income", totalIncome, R.color.primary_light)
         if (salary.deductionAmount > 0) { addAmountSection(mainLayout, "Total Deductions", -salary.deductionAmount, android.R.color.holo_red_dark) }
@@ -57,7 +57,7 @@ class SalaryDetailsDialog(
         
         // Trainees section
         if (salary.traineeDetails.isNotEmpty()) {
-            addSectionHeader(mainLayout, "👥 Trainees (${salary.traineeDetails.size})")
+            addSectionHeader(mainLayout, "Trainees (${salary.traineeDetails.size})")
             salary.traineeDetails.forEach { trainee -> addTraineeItem(mainLayout, trainee.traineeName, trainee.monthlyFee) }
             addAmountSection(mainLayout, "Total from Trainees", salary.totalPayments, R.color.primary_light)
         } else { addInfoSection(mainLayout, "Trainees", "No trainees assigned") }
@@ -65,13 +65,13 @@ class SalaryDetailsDialog(
         addDivider(mainLayout)
         
         if (salary.deductionDetails.isNotEmpty()) {
-            addSectionHeader(mainLayout, "📉 Deductions")
+            addSectionHeader(mainLayout, "Deductions")
             salary.deductionDetails.forEach { d -> addDeductionItem(mainLayout, d.type, d.description, d.amount) }
         } else { addInfoSection(mainLayout, "Deductions", "No deductions") }
         
         if (salary.totalWorkingDays > 0) {
             addDivider(mainLayout)
-            addSectionHeader(mainLayout, "📅 Attendance")
+            addSectionHeader(mainLayout, "Attendance")
             addInfoSection(mainLayout, "Working Days", "${salary.totalWorkingDays} days")
             addInfoSection(mainLayout, "Absence Days", "${salary.absenceDays} days")
             addInfoSection(mainLayout, "Absence Rate", "${String.format("%.1f", salary.absencePercentage)}%")
@@ -136,7 +136,14 @@ class SalaryDetailsDialog(
                 put(MediaStore.Downloads.RELATIVE_PATH, android.os.Environment.DIRECTORY_DOWNLOADS)
             }
             val resolver = context.contentResolver
-            val uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+            val uri = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+            } else {
+                // Fallback for older Android versions - save to app's internal storage
+                val file = java.io.File(context.getExternalFilesDir(android.os.Environment.DIRECTORY_DOWNLOADS), fileName)
+                file.outputStream().use { out -> pdf.writeTo(out) }
+                null // We've already written the file, so return null to skip the resolver.insert
+            }
             if (uri == null) { android.widget.Toast.makeText(context, "Save failed", android.widget.Toast.LENGTH_SHORT).show(); return }
             resolver.openOutputStream(uri)?.use { out -> pdf.writeTo(out) }
             pdf.close()

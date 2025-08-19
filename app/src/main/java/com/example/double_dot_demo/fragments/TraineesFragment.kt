@@ -1,6 +1,13 @@
 package com.example.double_dot_demo.fragments
 
 import android.os.Bundle
+import android.Manifest
+import android.app.Activity
+import android.content.Intent
+import android.database.Cursor
+import android.net.Uri
+import android.provider.ContactsContract
+import androidx.activity.result.contract.ActivityResultContracts
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.LayoutInflater
@@ -22,6 +29,8 @@ import com.example.double_dot_demo.utils.ScheduleManager
 import com.example.double_dot_demo.utils.SalaryManager
 import com.example.double_dot_demo.utils.Role
 import com.example.double_dot_demo.utils.Permissions
+import com.example.double_dot_demo.utils.NavigationUtils
+import com.example.double_dot_demo.utils.ButtonUtils
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
@@ -55,6 +64,38 @@ class TraineesFragment : Fragment() {
 
     // Coroutine scope for background operations
     private val fragmentScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+    private var activeAddTraineeDialog: AddTraineeDialog? = null
+
+    private val contactPickerLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            try {
+                val uri: Uri? = result.data?.data
+                if (uri != null) {
+                    val cursor: Cursor? = requireContext().contentResolver.query(
+                        uri,
+                        arrayOf(ContactsContract.CommonDataKinds.Phone.NUMBER),
+                        null,
+                        null,
+                        null
+                    )
+                    cursor?.use {
+                        if (it.moveToFirst()) {
+                            val number = it.getString(0)
+                            activeAddTraineeDialog?.setPickedPhoneNumber(number)
+                        }
+                    }
+                }
+            } catch (_: Exception) {}
+        }
+    }
+
+    private val requestContactsPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) launchContactPicker() else showToast("Contacts permission denied")
+    }
     
     // Listener registration for proper cleanup
     private var traineesListener: ListenerRegistration? = null
@@ -98,6 +139,9 @@ class TraineesFragment : Fragment() {
             
             // Setup add button with initial role (will be updated when role is loaded)
             setupAddButton()
+
+            // Hook contact picker for AddTraineeDialog
+            // The dialog will call back to open the picker
             
             // Load trainees with loading animation
             fragmentScope.launch {
@@ -126,14 +170,14 @@ class TraineesFragment : Fragment() {
         try {
             binding.recyclerViewTrainees.layoutManager = LinearLayoutManager(requireContext())
             
-            val isCoach = roleEnum == Role.COACH
+            val initialCoachView = roleEnum == Role.COACH
             traineeAdapter = TraineeAdapter(
-                isCoachView = isCoach,
-                onEditClick = { trainee -> if (!isCoach) showEditTraineeDialog(trainee) },
-                onDeleteClick = { trainee -> if (!isCoach) deleteTrainee(trainee) },
-                onRenewClick = { trainee -> if (!isCoach) showRenewTraineeDialog(trainee) },
-                onFreezeClick = { trainee -> if (!isCoach) toggleFreezeStatus(trainee) },
-                onShowDetailsClick = { _ -> }
+                isCoachView = initialCoachView,
+                onEditClick = { trainee -> if (canEditTrainee()) showEditTraineeDialog(trainee) },
+                onDeleteClick = { trainee -> if (canDeleteTrainee()) deleteTrainee(trainee) },
+                onRenewClick = { trainee -> if (canRenewTrainee()) showRenewTraineeDialog(trainee) },
+                onFreezeClick = { trainee -> if (canFreezeTrainee()) toggleFreezeStatus(trainee) },
+                onShowDetailsClick = { trainee -> if (canShowDetails()) showTraineeDetailsDialog(trainee) }
             )
             
             binding.recyclerViewTrainees.adapter = traineeAdapter
@@ -247,12 +291,11 @@ class TraineesFragment : Fragment() {
                             currentUserRole = newRole
                             // Update adapter with new role
                             android.util.Log.d("TraineesFragment", "Updating adapter with new role: $currentUserRole")
-                            if (isAdded && traineeAdapter != null) {
-                                // Head coaches and admins get full view, coaches get limited view
+                            if (isAdded) {
+                                // Head coaches and admins see buttons; coaches get limited view
                                 val isCoachView = currentUserRole == "coach"
-                                // Note: updateCoachView function was removed, buttons are always visible now
-                                traineeAdapter.notifyDataSetChanged()
-                                android.util.Log.d("TraineesFragment", "Adapter updated with isCoachView: $isCoachView")
+                                traineeAdapter.setIsCoachView(isCoachView)
+                                android.util.Log.d("TraineesFragment", "Adapter setIsCoachView: $isCoachView")
                             }
                             
                             // Update add button visibility based on new role
@@ -458,6 +501,10 @@ class TraineesFragment : Fragment() {
             if (!isAdded || context == null) return
             
             val dialog = AddTraineeDialog(requireContext())
+            activeAddTraineeDialog = dialog
+            dialog.setOnPickPhoneClickListener {
+                checkContactsPermissionAndPick()
+            }
             dialog.setOnSaveClickListener { trainee ->
                 safeExecute {
                     addTrainee(trainee)
@@ -475,6 +522,8 @@ class TraineesFragment : Fragment() {
             if (!isAdded || context == null) return
             
             val dialog = AddTraineeDialog(requireContext(), trainee)
+            activeAddTraineeDialog = dialog
+            dialog.setOnPickPhoneClickListener { checkContactsPermissionAndPick() }
             dialog.setOnSaveClickListener { updatedTrainee ->
                 safeExecute {
                     updateTrainee(updatedTrainee)
@@ -833,25 +882,52 @@ class TraineesFragment : Fragment() {
         }
     }
 
-    private fun showToast(message: String) {
+    private fun checkContactsPermissionAndPick() {
         try {
-            if (isAdded && context != null) {
-                Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+            if (!isAdded) return
+            val permission = Manifest.permission.READ_CONTACTS
+            if (androidx.core.content.ContextCompat.checkSelfPermission(requireContext(), permission) == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                launchContactPicker()
+            } else {
+                requestContactsPermissionLauncher.launch(permission)
             }
-        } catch (e: Exception) {
-            android.util.Log.e("TraineesFragment", "Error showing toast: ${e.message}")
-        }
+        } catch (_: Exception) {}
+    }
+
+    private fun launchContactPicker() {
+        try {
+            val intent = Intent(Intent.ACTION_PICK, ContactsContract.CommonDataKinds.Phone.CONTENT_URI)
+            contactPickerLauncher.launch(intent)
+        } catch (_: Exception) {}
+    }
+
+    private fun showToast(message: String) {
+        NavigationUtils.safeShowToast(context, message)
+    }
+
+    override fun onPause() {
+        super.onPause()
+        // Cancel any pending operations when fragment is paused
+        fragmentScope.coroutineContext.cancelChildren()
     }
 
     override fun onDestroyView() {
         super.onDestroyView()
         
         // Remove listeners to prevent memory leaks
-                 traineesListener?.remove()
-        traineesListener = null
+        try {
+            traineesListener?.remove()
+            traineesListener = null
+        } catch (e: Exception) {
+            android.util.Log.e("TraineesFragment", "Error removing listeners: ${e.message}")
+        }
         
         // Cancel any pending coroutines
-        fragmentScope.coroutineContext.cancelChildren()
+        try {
+            fragmentScope.coroutineContext.cancelChildren()
+        } catch (e: Exception) {
+            android.util.Log.e("TraineesFragment", "Error canceling coroutines: ${e.message}")
+        }
         
         _binding = null
     }
@@ -889,9 +965,10 @@ class TraineesFragment : Fragment() {
         try {
             if (!isAdded || context == null) return
             
-            // Get current month and year
+            // Get current month and year using consistent format
             val calendar = java.util.Calendar.getInstance()
-            val currentMonth = String.format("%04d-%02d", calendar.get(java.util.Calendar.YEAR), calendar.get(java.util.Calendar.MONTH) + 1)
+            val monthFormat = java.text.SimpleDateFormat("MMMM yyyy", java.util.Locale.getDefault())
+            val currentMonth = monthFormat.format(calendar.time)
             val currentYear = calendar.get(java.util.Calendar.YEAR)
             
             // Get current user info

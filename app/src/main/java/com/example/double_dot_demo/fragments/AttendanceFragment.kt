@@ -20,6 +20,8 @@ import com.google.android.material.textfield.TextInputLayout
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
+import com.example.double_dot_demo.utils.NavigationUtils
+import com.example.double_dot_demo.utils.ButtonUtils
 
 class AttendanceFragment : Fragment() {
     private lateinit var recyclerView: RecyclerView
@@ -253,11 +255,11 @@ class AttendanceFragment : Fragment() {
                             val trainee = document.toObject(Trainee::class.java)
                             if (trainee != null) {
                                 trainee.id = document.id
-                                                                 android.util.Log.d("AttendanceFragment", "Trainee: ${trainee.name}, Coach ID: ${trainee.coachId}, Status: ${trainee.status}")
-                                 
-                                 // For now, show all trainees to debug the issue
-                                 newTrainees.add(trainee)
-                                 android.util.Log.d("AttendanceFragment", "Added trainee: ${trainee.name}, Coach ID: ${trainee.coachId}, Status: ${trainee.status}, Current User: ${currentUser.uid}")
+                                android.util.Log.d("AttendanceFragment", "Trainee: ${trainee.name}, Coach ID: ${trainee.coachId}, Status: ${trainee.status}")
+                                
+                                // For now, show all trainees to debug the issue
+                                newTrainees.add(trainee)
+                                android.util.Log.d("AttendanceFragment", "Added trainee: ${trainee.name}, Coach ID: ${trainee.coachId}, Status: ${trainee.status}, Current User: ${currentUser.uid}")
                                 
                                 // TODO: Re-enable coach filtering once we confirm the coach ID matching works
                                 // if (currentUserRole == "coach") {
@@ -489,9 +491,24 @@ class AttendanceFragment : Fragment() {
             }
             
             android.util.Log.d("AttendanceFragment", "Firestore sessions to update: $firestoreSessions")
-            
+            // Prepare update map and mark as completed if all sessions done
+            val totalCompleted = firestoreSessions.size
+            val shouldComplete = trainee.totalSessions > 0 && totalCompleted >= trainee.totalSessions
+            val remaining = (trainee.totalSessions - totalCompleted).coerceAtLeast(0)
+
+            val updateData = hashMapOf<String, Any>(
+                "attendanceSessions" to firestoreSessions
+            ).apply {
+                put("remainingSessions", remaining)
+                if (shouldComplete) put("status", "completed")
+            }
+
+            if (shouldComplete) {
+                android.util.Log.d("AttendanceFragment", "Trainee ${trainee.name} completed all sessions. Marking status as 'completed'.")
+            }
+
             db.collection("trainees").document(trainee.id)
-                .update("attendanceSessions", firestoreSessions)
+                .update(updateData as Map<String, Any>)
                 .addOnSuccessListener {
                     android.util.Log.d("AttendanceFragment", "Firestore updated successfully")
                 }
@@ -558,17 +575,20 @@ class AttendanceFragment : Fragment() {
     }
 
     private fun showToast(message: String) {
-        try {
-            if (isAdded && context != null) {
-                Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
-            }
-        } catch (e: Exception) {
-            android.util.Log.e("AttendanceFragment", "Error showing toast: ${e.message}")
-        }
+        NavigationUtils.safeShowToast(context, message)
+    }
+
+    override fun onPause() {
+        super.onPause()
+        // Cancel any pending operations when fragment is paused
     }
 
     override fun onDestroyView() {
         super.onDestroyView()
-                 traineesListener?.remove()
+        try {
+            traineesListener?.remove()
+        } catch (e: Exception) {
+            android.util.Log.e("AttendanceFragment", "Error removing listeners: ${e.message}")
+        }
     }
 } 

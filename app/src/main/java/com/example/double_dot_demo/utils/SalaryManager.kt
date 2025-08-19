@@ -5,10 +5,12 @@ import com.example.double_dot_demo.models.*
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
+import java.text.SimpleDateFormat
 import java.util.*
 
 class SalaryManager {
     private val db = FirebaseFirestore.getInstance()
+    private val monthFormat = SimpleDateFormat("MMMM yyyy", Locale.getDefault())
     
     companion object {
         private const val TAG = "SalaryManager"
@@ -17,35 +19,22 @@ class SalaryManager {
         private const val COACH_BASE_SALARY = 1500.0
         private const val HEAD_COACH_BASE_SALARY = 2500.0
         
-        private fun getMonthName(month: Int): String {
-            return when (month) {
-                0 -> "January"
-                1 -> "February"
-                2 -> "March"
-                3 -> "April"
-                4 -> "May"
-                5 -> "June"
-                6 -> "July"
-                7 -> "August"
-                8 -> "September"
-                9 -> "October"
-                10 -> "November"
-                11 -> "December"
-                else -> "Unknown"
-            }
-        }
+        // Branch-specific commission rates
+        private const val TOKEELAT_COMMISSION_RATE = 0.40 // 40% for نادي التوكيلات
+        private const val YACHT_COMMISSION_RATE = 0.30 // 30% for نادي اليخت
+        private const val MADINA_FIXED_AMOUNT = 200.0 // 200 pounds fixed for المدينة الرياضية
     }
     
     private suspend fun serverMonthKey(): String {
         val date = ServerTime.now()
         val cal = Calendar.getInstance().apply { time = date }
-        return String.format("%04d-%02d", cal.get(Calendar.YEAR), cal.get(Calendar.MONTH) + 1)
+        return monthFormat.format(cal.time)
     }
 
     suspend fun createSalaryForEmployee(employee: Employee): Boolean {
         return try {
             val month = serverMonthKey()
-            val year = month.substring(0, 4).toInt()
+            val year = Calendar.getInstance().get(Calendar.YEAR)
             
             // Only create salary if employee has trainees
             val trainees = db.collection("trainees")
@@ -169,7 +158,7 @@ class SalaryManager {
         }
     }
     
-    private suspend fun calculateEmployeeSalary(employee: Employee, allTrainees: List<Trainee>, month: String, year: Int = month.substring(0,4).toInt()) {
+    private suspend fun calculateEmployeeSalary(employee: Employee, allTrainees: List<Trainee>, month: String, year: Int = Calendar.getInstance().get(Calendar.YEAR)) {
         try {
             Log.d(TAG, "Calculating salary for ${employee.name} (ID: ${employee.id}) for month $month")
             
@@ -290,10 +279,11 @@ class SalaryManager {
                 Log.d(TAG, "Trainee: ${trainee.name}, CoachID: ${trainee.coachId}, CoachName: ${trainee.coachName}, Payment: ${trainee.paymentAmount}")
             }
             
-            // Calculate total payments from trainees (coach gets 40% of trainee fees)
-            val totalTraineeFees = employeeTrainees.sumOf { it.paymentAmount }
-            val totalPayments = totalTraineeFees * 0.4 // Coach gets 40% of trainee fees
-            Log.d(TAG, "${employee.name} total trainee fees: $totalTraineeFees, coach payment (40%): $totalPayments")
+            // Calculate total payments from trainees using branch-specific commission rates
+            val totalPayments = employeeTrainees.sumOf { trainee ->
+                calculateCommission(employee.branch, trainee.paymentAmount)
+            }
+            Log.d(TAG, "${employee.name} total trainee fees: ${employeeTrainees.sumOf { it.paymentAmount }}, coach payment (${employee.branch}): $totalPayments")
             
             // No fixed base salary - only trainee payments count
             val baseSalary = 0.0
@@ -320,12 +310,12 @@ class SalaryManager {
             Log.d(TAG, "  Total Payments: $totalPayments")
             Log.d(TAG, "  Absence Deduction: $absenceDeduction")
             
-            // Create trainee details (show 40% of each trainee's fee)
+            // Create trainee details (show branch-specific commission for each trainee)
             val traineeDetails = employeeTrainees.map { trainee ->
                 TraineeDetail(
                     traineeId = trainee.id,
                     traineeName = trainee.name,
-                    monthlyFee = trainee.paymentAmount * 0.4, // Coach gets 40% of trainee fee
+                    monthlyFee = calculateCommission(employee.branch, trainee.paymentAmount), // Branch-specific commission
                     paymentDate = Timestamp.now()
                 )
             }
@@ -450,7 +440,7 @@ class SalaryManager {
             }
             
             // Sort in memory: month desc, then employeeName asc
-            val sorted = salaries.sortedWith(compareByDescending<Salary> { it.month }.thenBy { it.employeeName })
+            val sorted = salaries.sortedWith(compareByDescending<Salary> { parseMonth(it.month) }.thenBy { it.employeeName })
             
             Log.d(TAG, "Loaded all salaries: ${sorted.size} total records")
             sorted.forEach { salary ->
@@ -461,6 +451,22 @@ class SalaryManager {
         } catch (e: Exception) {
             Log.e(TAG, "Error loading all salaries: ${e.message}")
             emptyList()
+        }
+    }
+    
+    private fun parseMonth(monthLabel: String): Long {
+        return try { monthFormat.parse(monthLabel)?.time ?: 0L } catch (_: Exception) { 0L }
+    }
+    
+    /**
+     * Calculate commission amount based on branch and trainee fee
+     */
+    private fun calculateCommission(branch: String, traineeFee: Double): Double {
+        return when (branch) {
+            "نادي التوكيلات" -> traineeFee * TOKEELAT_COMMISSION_RATE // 40%
+            "نادي اليخت" -> traineeFee * YACHT_COMMISSION_RATE // 30%
+            "المدينة الرياضية" -> MADINA_FIXED_AMOUNT // Fixed 200 pounds
+            else -> traineeFee * TOKEELAT_COMMISSION_RATE // Default to 40%
         }
     }
     
@@ -498,7 +504,9 @@ class SalaryManager {
                 .orderBy("month", com.google.firebase.firestore.Query.Direction.DESCENDING)
                 .get()
                 .await()
-            result.documents.mapNotNull { it.getString("month") }.distinct()
+            val months = result.documents.mapNotNull { it.getString("month") }.distinct()
+            // Sort months properly using the month format
+            months.sortedByDescending { parseMonth(it) }
         } catch (e: Exception) {
             Log.e(TAG, "Error loading available months: ${e.message}")
             emptyList()

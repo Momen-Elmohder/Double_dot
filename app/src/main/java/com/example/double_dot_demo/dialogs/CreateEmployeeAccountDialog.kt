@@ -22,9 +22,18 @@ class CreateEmployeeAccountDialog(
     private val firestore = FirebaseFirestore.getInstance()
 
     private var onAccountCreatedListener: ((Employee) -> Unit)? = null
+    private var onPickPhoneClickListener: (() -> Unit)? = null
 
     fun setOnAccountCreatedListener(listener: (Employee) -> Unit) {
         onAccountCreatedListener = listener
+    }
+
+    fun setOnPickPhoneClickListener(listener: () -> Unit) {
+        onPickPhoneClickListener = listener
+    }
+
+    fun setPickedPhoneNumber(number: String) {
+        if (::binding.isInitialized) binding.etPhone.setText(number)
     }
 
     fun show() {
@@ -51,6 +60,10 @@ class CreateEmployeeAccountDialog(
         binding.btnCancel.setOnClickListener { dialog.dismiss() }
         binding.btnCreateAccount.setOnClickListener {
             if (validateInputs()) createEmployeeAccount()
+        }
+
+        binding.tilPhone.setEndIconOnClickListener {
+            try { onPickPhoneClickListener?.invoke() } catch (_: Exception) {}
         }
     }
 

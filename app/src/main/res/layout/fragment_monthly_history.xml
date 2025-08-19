@@ -59,7 +59,7 @@
                 android:text="Monthly Summary"
                 android:textSize="16sp"
                 android:textStyle="bold"
-                android:textColor="@color/black" />
+                android:textColor="?attr/colorOnSurface" />
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -89,7 +89,7 @@
                         android:text="$0.00"
                         android:textSize="18sp"
                         android:textStyle="bold"
-                        android:textColor="@color/black" />
+                        android:textColor="?attr/colorOnSurface" />
 
                 </LinearLayout>
 
@@ -115,7 +115,7 @@
                         android:text="0"
                         android:textSize="18sp"
                         android:textStyle="bold"
-                        android:textColor="@color/black" />
+                        android:textColor="?attr/colorOnSurface" />
 
                 </LinearLayout>
 

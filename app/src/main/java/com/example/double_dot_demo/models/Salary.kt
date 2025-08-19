@@ -8,7 +8,7 @@ data class Salary(
     val employeeName: String = "",
     val role: String = "",
     val branch: String = "",
-    val month: String = "", // Format: "2024-01"
+    val month: String = "", // Format: "January 2024"
     val year: Int = 0,
     val baseSalary: Double = 0.0,
     val totalTrainees: Int = 0,

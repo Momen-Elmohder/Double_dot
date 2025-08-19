@@ -81,7 +81,7 @@
         android:layout_marginBottom="24dp"
         android:padding="8dp"
         android:background="@drawable/status_background"
-        android:textColor="@color/black" />
+        android:textColor="?attr/colorOnSurface" />
 
     <!-- Buttons -->
     <LinearLayout

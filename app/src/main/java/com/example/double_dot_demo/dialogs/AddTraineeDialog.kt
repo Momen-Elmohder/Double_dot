@@ -29,9 +29,20 @@ class AddTraineeDialog(
     private var coachesListener: com.google.firebase.firestore.ListenerRegistration? = null
 
     private var onSaveClickListener: ((Trainee) -> Unit)? = null
+    private var onPickPhoneClickListener: (() -> Unit)? = null
 
     fun setOnSaveClickListener(listener: (Trainee) -> Unit) {
         onSaveClickListener = listener
+    }
+
+    fun setOnPickPhoneClickListener(listener: () -> Unit) {
+        onPickPhoneClickListener = listener
+    }
+
+    fun setPickedPhoneNumber(number: String) {
+        if (::binding.isInitialized) {
+            binding.etPhoneNumber.setText(number)
+        }
     }
 
     fun show() {
@@ -71,6 +82,13 @@ class AddTraineeDialog(
                 cleanup()
                 dialog.dismiss()
             }
+        }
+
+        // Contact picker end icon
+        binding.tilPhoneNumber.setEndIconOnClickListener {
+            try {
+                onPickPhoneClickListener?.invoke()
+            } catch (_: Exception) {}
         }
     }
 

@@ -1,6 +1,12 @@
 package com.example.double_dot_demo.fragments
 
 import android.os.Bundle
+import android.app.Activity
+import android.content.Intent
+import android.database.Cursor
+import android.net.Uri
+import android.provider.ContactsContract
+import androidx.activity.result.contract.ActivityResultContracts
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.LayoutInflater
@@ -21,6 +27,8 @@ import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
+import com.example.double_dot_demo.utils.NavigationUtils
+import com.example.double_dot_demo.utils.ButtonUtils
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -42,6 +50,35 @@ class EmployeesFragment : Fragment() {
     
     // Listener registration for proper cleanup
     private var employeesListener: ListenerRegistration? = null
+
+    private var activeAddDialog: AddEmployeeDialog? = null
+    private var activeCreateDialog: CreateEmployeeAccountDialog? = null
+
+    private val contactPickerLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            try {
+                val uri: Uri? = result.data?.data
+                if (uri != null) {
+                    val cursor: Cursor? = requireContext().contentResolver.query(
+                        uri,
+                        arrayOf(ContactsContract.CommonDataKinds.Phone.NUMBER),
+                        null,
+                        null,
+                        null
+                    )
+                    cursor?.use {
+                        if (it.moveToFirst()) {
+                            val number = it.getString(0)
+                            activeAddDialog?.setPickedPhoneNumber(number)
+                            activeCreateDialog?.setPickedPhoneNumber(number)
+                        }
+                    }
+                }
+            } catch (_: Exception) {}
+        }
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -219,6 +256,8 @@ class EmployeesFragment : Fragment() {
     private fun showCreateAccountDialog() {
         if (isAdded) {
             val dialog = CreateEmployeeAccountDialog(requireContext(), currentUserRole)
+            activeCreateDialog = dialog
+            dialog.setOnPickPhoneClickListener { launchContactPicker() }
             dialog.setOnAccountCreatedListener { employee ->
                 // Account created successfully, refresh the list
                 loadEmployees()
@@ -310,11 +349,20 @@ class EmployeesFragment : Fragment() {
     private fun showEditEmployeeDialog(employee: Employee) {
         if (isAdded) {
             val dialog = AddEmployeeDialog(requireContext(), employee)
+            activeAddDialog = dialog
+            dialog.setOnPickPhoneClickListener { launchContactPicker() }
             dialog.setOnSaveClickListener { updatedEmployee ->
                 updateEmployee(updatedEmployee)
             }
             dialog.show()
         }
+    }
+
+    private fun launchContactPicker() {
+        try {
+            val intent = Intent(Intent.ACTION_PICK, ContactsContract.CommonDataKinds.Phone.CONTENT_URI)
+            contactPickerLauncher.launch(intent)
+        } catch (_: Exception) {}
     }
     
     private fun showEmployeeDetailsDialog(employee: Employee) {
@@ -418,12 +466,21 @@ class EmployeesFragment : Fragment() {
             .show()
     }
 
+    override fun onPause() {
+        super.onPause()
+        // Cancel any pending operations when fragment is paused
+    }
+
     override fun onDestroyView() {
         super.onDestroyView()
         
         // Remove listeners to prevent memory leaks
-        employeesListener?.remove()
-        employeesListener = null
+        try {
+            employeesListener?.remove()
+            employeesListener = null
+        } catch (e: Exception) {
+            android.util.Log.e("EmployeesFragment", "Error removing listeners: ${e.message}")
+        }
         
         _binding = null
     }

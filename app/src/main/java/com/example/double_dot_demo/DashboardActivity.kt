@@ -14,6 +14,8 @@ import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.view.GravityCompat
 import androidx.drawerlayout.widget.DrawerLayout
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.FragmentManager
+import androidx.fragment.app.FragmentTransaction
 import com.example.double_dot_demo.fragments.AttendanceFragment
 import com.example.double_dot_demo.fragments.CompletedTraineesFragment
 import com.example.double_dot_demo.fragments.EmployeesFragment
@@ -26,11 +28,14 @@ import com.example.double_dot_demo.fragments.WeeklyScheduleFragment
 import com.example.double_dot_demo.utils.RoleFixer
 import com.example.double_dot_demo.utils.Role
 import com.example.double_dot_demo.utils.Permissions
+import com.example.double_dot_demo.utils.NavigationUtils
+import com.example.double_dot_demo.utils.ButtonUtils
 import com.google.android.material.bottomnavigation.BottomNavigationView
 import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.navigation.NavigationView
 import com.google.firebase.auth.FirebaseAuth
 import android.widget.Toast
+import kotlinx.coroutines.*
 
 class DashboardActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelectedListener {
     
@@ -41,40 +46,33 @@ class DashboardActivity : AppCompatActivity(), NavigationView.OnNavigationItemSe
     private lateinit var navigationView: NavigationView
     private var currentUserRole: String = ""
     private val roleEnum: Role get() = Role.from(currentUserRole)
-    private var watermarkView: ImageView? = null
+    
+    // Navigation safety management
+    private var currentFragment: Fragment? = null
+    private var isNavigating = false
+    private var navigationDebounceJob: Job? = null
+    private val navigationScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+    private var lastNavigationTime = 0L
+    private val NAVIGATION_DEBOUNCE_TIME = 300L
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
+        // Improved exception handler
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
             android.util.Log.e("DashboardActivity", "Uncaught exception in thread ${thread.name}: ${throwable.message}")
-            Toast.makeText(this, "App error occurred. Please restart.", Toast.LENGTH_LONG).show()
+            runOnUiThread {
+                Toast.makeText(this, "App error occurred. Please restart.", Toast.LENGTH_LONG).show()
+            }
         }
         
         try {
-            AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
+            // Force light mode regardless of system setting
+            AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
             setContentView(R.layout.activity_dashboard)
 
-            // Watermark overlay inside fragmentContainer
-            try {
-                val container = findViewById<FrameLayout>(R.id.fragmentContainer)
-                container.viewTreeObserver.addOnGlobalLayoutListener(object : android.view.ViewTreeObserver.OnGlobalLayoutListener {
-                    override fun onGlobalLayout() {
-                        container.viewTreeObserver.removeOnGlobalLayoutListener(this)
-                        val size = (container.width * 0.65f).toInt().coerceAtLeast(220)
-                        val params = FrameLayout.LayoutParams(size, size, Gravity.CENTER)
-                        watermarkView = ImageView(this@DashboardActivity).apply {
-                            setImageResource(R.drawable.double_dot_logo)
-                            alpha = 0.15f
-                            scaleType = ImageView.ScaleType.FIT_CENTER
-                            isClickable = false
-                            isFocusable = false
-                            importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
-                        }
-                        container.addView(watermarkView, params)
-                    }
-                })
-            } catch (_: Exception) {}
+            // Simplified watermark overlay
+            setupWatermark()
 
             auth = FirebaseAuth.getInstance()
             if (auth.currentUser == null) { goToSignIn(); return }
@@ -98,14 +96,45 @@ class DashboardActivity : AppCompatActivity(), NavigationView.OnNavigationItemSe
         }
     }
 
-    private fun ensureWatermarkOnTop() {
+    override fun onPause() {
+        super.onPause()
+        // Cancel any pending navigation operations
+        navigationDebounceJob?.cancel()
+        isNavigating = false
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        // Clean up coroutines and navigation
+        navigationScope.cancel()
+        navigationDebounceJob?.cancel()
+        ButtonUtils.cancelAllClicks()
+        NavigationUtils.cancelNavigation()
+    }
+
+    private fun setupWatermark() {
         try {
             val container = findViewById<FrameLayout>(R.id.fragmentContainer)
-            watermarkView?.let { wm ->
-                container.post { wm.bringToFront(); wm.invalidate() }
-            }
+            container.viewTreeObserver.addOnGlobalLayoutListener(object : android.view.ViewTreeObserver.OnGlobalLayoutListener {
+                override fun onGlobalLayout() {
+                    container.viewTreeObserver.removeOnGlobalLayoutListener(this)
+                    val size = (container.width * 0.5f).toInt().coerceAtLeast(200) // Reduced size
+                    val params = FrameLayout.LayoutParams(size, size, Gravity.CENTER)
+                    val watermarkView = ImageView(this@DashboardActivity).apply {
+                        setImageResource(R.drawable.double_dot_logo)
+                        alpha = 0.08f // Reduced opacity
+                        scaleType = ImageView.ScaleType.FIT_CENTER
+                        isClickable = false
+                        isFocusable = false
+                        importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+                    }
+                    container.addView(watermarkView, params)
+                }
+            })
         } catch (_: Exception) {}
     }
+
+    
 
     private fun setupUltraSimpleCoachView() {
         try {
@@ -120,8 +149,10 @@ class DashboardActivity : AppCompatActivity(), NavigationView.OnNavigationItemSe
                 // Enable navigation icon for coaches
                 supportActionBar?.setDisplayHomeAsUpEnabled(true)
                 
-                // Set up navigation icon click listener
+                // Set up navigation icon click listener with debouncing
                 toolbar.setNavigationOnClickListener {
+                    if (NavigationUtils.isNavigationInProgress()) return@setNavigationOnClickListener
+                    
                     try {
                         drawerLayout.openDrawer(GravityCompat.START)
                     } catch (e: Exception) {
@@ -168,8 +199,10 @@ class DashboardActivity : AppCompatActivity(), NavigationView.OnNavigationItemSe
                 setSupportActionBar(toolbar)
                 supportActionBar?.title = "Double Dot Academy"
                 
-                // Set up navigation icon click listener
+                // Set up navigation icon click listener with debouncing
                 toolbar.setNavigationOnClickListener {
+                    if (NavigationUtils.isNavigationInProgress()) return@setNavigationOnClickListener
+                    
                     try {
                         drawerLayout.openDrawer(GravityCompat.START)
                     } catch (e: Exception) {
@@ -305,20 +338,29 @@ class DashboardActivity : AppCompatActivity(), NavigationView.OnNavigationItemSe
             bottomNavigation.menu.findItem(R.id.nav_employees)?.isVisible = Permissions.canAccessEmployees(role)
             
             bottomNavigation.setOnItemSelectedListener { menuItem ->
+                // Prevent rapid navigation
+                if (isNavigating) return@setOnItemSelectedListener false
+                
                 try {
                     when (menuItem.itemId) {
-                        R.id.nav_calendar -> { loadFragment(AttendanceFragment()); true }
-                        R.id.nav_trainees -> { loadFragment(TraineesFragment()); true }
+                        R.id.nav_calendar -> { safeLoadFragment(AttendanceFragment()) }
+                        R.id.nav_trainees -> { safeLoadFragment(TraineesFragment()) }
                         R.id.nav_employees -> {
                             if (Permissions.canAccessEmployees(role)) {
-                                loadFragment(EmployeesFragment.newInstance(currentUserRole)); true
-                            } else { showToast("You don't have permission to access employees"); false }
+                                safeLoadFragment(EmployeesFragment.newInstance(currentUserRole))
+                            } else { 
+                                showToast("You don't have permission to access employees")
+                                false 
+                            }
                         }
                         else -> false
                     }
                 } catch (e: Exception) {
                     android.util.Log.e("DashboardActivity", "Error in navigation: ${e.message}")
-                    Toast.makeText(this, "Navigation error: ${e.message}", Toast.LENGTH_LONG).show(); false
+                    if (!isFinishing && !isDestroyed) {
+                        Toast.makeText(this, "Navigation error: ${e.message}", Toast.LENGTH_LONG).show()
+                    }
+                    false
                 }
             }
         } catch (_: Exception) {}
@@ -374,19 +416,20 @@ class DashboardActivity : AppCompatActivity(), NavigationView.OnNavigationItemSe
             bottomNavigation.selectedItemId = R.id.nav_trainees
             
             bottomNavigation.setOnItemSelectedListener { menuItem ->
+                // Prevent rapid navigation
+                if (isNavigating) return@setOnItemSelectedListener false
+                
                 try {
                     when (menuItem.itemId) {
                         R.id.nav_calendar -> {
-                            loadFragment(AttendanceFragment())
-                            true
+                            safeLoadFragment(AttendanceFragment())
                         }
                         R.id.nav_trainees -> {
-                            loadFragment(TraineesFragment().apply {
+                            safeLoadFragment(TraineesFragment().apply {
                                 arguments = Bundle().apply {
                                     putString("user_role", currentUserRole)
                                 }
                             })
-                            true
                         }
                         R.id.nav_employees -> {
                             // Coaches cannot access employees
@@ -397,7 +440,9 @@ class DashboardActivity : AppCompatActivity(), NavigationView.OnNavigationItemSe
                     }
                 } catch (e: Exception) {
                     android.util.Log.e("DashboardActivity", "Error in coach navigation: ${e.message}")
-                    Toast.makeText(this, "Navigation error: ${e.message}", Toast.LENGTH_LONG).show()
+                    if (!isFinishing && !isDestroyed) {
+                        Toast.makeText(this, "Navigation error: ${e.message}", Toast.LENGTH_LONG).show()
+                    }
                     false
                 }
             }
@@ -560,17 +605,71 @@ class DashboardActivity : AppCompatActivity(), NavigationView.OnNavigationItemSe
     }
     
     private fun loadFragment(fragment: Fragment) {
+        // Comprehensive navigation safety checks
+        if (isFinishing || isDestroyed) return
+        if (isNavigating) return
+        if (supportFragmentManager.isDestroyed || supportFragmentManager.isStateSaved) return
+        
+        val currentTime = System.currentTimeMillis()
+        if (currentTime - lastNavigationTime < NAVIGATION_DEBOUNCE_TIME) {
+            // Debounce rapid navigation attempts
+            return
+        }
+        
         try {
-            supportFragmentManager.beginTransaction()
+            isNavigating = true
+            lastNavigationTime = currentTime
+            
+            // Cancel any pending navigation operations
+            navigationDebounceJob?.cancel()
+            
+            // Execute pending transactions safely
+            if (!supportFragmentManager.isDestroyed && !supportFragmentManager.isStateSaved) {
+                supportFragmentManager.executePendingTransactions()
+            }
+            
+            // Check if we're still in a valid state
+            if (isFinishing || isDestroyed || supportFragmentManager.isDestroyed) {
+                isNavigating = false
+                return
+            }
+            
+            // Use optimized transaction with safety checks
+            val transaction = supportFragmentManager.beginTransaction()
+                .setTransition(FragmentTransaction.TRANSIT_FRAGMENT_FADE)
                 .replace(R.id.fragmentContainer, fragment)
-                .runOnCommit { ensureWatermarkOnTop() }
-                .commit()
-            // Fallback in case runOnCommit isn't called on older devices
-            ensureWatermarkOnTop()
+            
+            // Add to back stack only if not the first fragment
+            if (currentFragment != null) {
+                transaction.addToBackStack(null)
+            }
+            
+            // Commit with state loss protection
+            if (supportFragmentManager.isStateSaved) {
+                transaction.commitAllowingStateLoss()
+            } else {
+                transaction.commit()
+            }
+            
+            currentFragment = fragment
+            
+            // Reset navigation flag after a delay
+            navigationDebounceJob = navigationScope.launch {
+                delay(NAVIGATION_DEBOUNCE_TIME)
+                isNavigating = false
+            }
+            
         } catch (e: Exception) {
             android.util.Log.e("DashboardActivity", "Error loading fragment: ${e.message}")
-            Toast.makeText(this, "Error loading page: ${e.message}", Toast.LENGTH_LONG).show()
+            if (!isFinishing && !isDestroyed) {
+                Toast.makeText(this, "Error loading page: ${e.message}", Toast.LENGTH_LONG).show()
+            }
+            isNavigating = false
         }
+    }
+
+    private fun safeLoadFragment(fragment: Fragment): Boolean {
+        return NavigationUtils.safeLoadFragment(this, fragment, R.id.fragmentContainer, true)
     }
     
     override fun onCreateOptionsMenu(menu: Menu?): Boolean {
@@ -582,10 +681,6 @@ class DashboardActivity : AppCompatActivity(), NavigationView.OnNavigationItemSe
         return when (item.itemId) {
             R.id.action_sign_out -> {
                 signOut()
-                true
-            }
-            R.id.action_profile -> {
-                // TODO: Implement profile functionality
                 true
             }
             else -> super.onOptionsItemSelected(item)
@@ -609,11 +704,7 @@ class DashboardActivity : AppCompatActivity(), NavigationView.OnNavigationItemSe
     }
     
     private fun showToast(message: String) {
-        try {
-            android.widget.Toast.makeText(this, message, android.widget.Toast.LENGTH_SHORT).show()
-        } catch (e: Exception) {
-            android.util.Log.e("DashboardActivity", "Error showing toast: ${e.message}")
-        }
+        NavigationUtils.safeShowToast(this, message)
     }
     
     override fun onBackPressed() {
