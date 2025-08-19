@@ -87,10 +87,19 @@ class ExpensesFragment : Fragment() {
             tvNetAmount = view.findViewById(R.id.tvNetAmount)
             btnExport = view.findViewById(R.id.btnExport)
             
-            if (recyclerView == null || actvMonth == null || fabAddExpense == null || 
-                tvTotalExpenses == null || tvTotalIncome == null || tvNetAmount == null || btnExport == null) {
-                android.util.Log.e("ExpensesFragment", "One or more views not found")
-                android.widget.Toast.makeText(context, "Error: Some UI elements not found", android.widget.Toast.LENGTH_SHORT).show()
+            // Check if views are found and log which ones are missing
+            val missingViews = mutableListOf<String>()
+            if (recyclerView == null) missingViews.add("recyclerView")
+            if (actvMonth == null) missingViews.add("actvMonth")
+            if (fabAddExpense == null) missingViews.add("fabAddExpense")
+            if (tvTotalExpenses == null) missingViews.add("tvTotalExpenses")
+            if (tvTotalIncome == null) missingViews.add("tvTotalIncome")
+            if (tvNetAmount == null) missingViews.add("tvNetAmount")
+            if (btnExport == null) missingViews.add("btnExport")
+            
+            if (missingViews.isNotEmpty()) {
+                android.util.Log.e("ExpensesFragment", "Missing views: ${missingViews.joinToString(", ")}")
+                android.widget.Toast.makeText(context, "Error: Missing UI elements: ${missingViews.joinToString(", ")}", android.widget.Toast.LENGTH_LONG).show()
                 return
             }
             
@@ -675,6 +684,13 @@ class ExpensesFragment : Fragment() {
                     
                     updateExpensesForMonth()
                     android.util.Log.d("ExpensesFragment", "Loaded ${expenses.size} expenses")
+                    
+                    // Log some sample data for debugging
+                    if (expenses.isNotEmpty()) {
+                        android.util.Log.d("ExpensesFragment", "Sample expense: ${expenses.first().title} - ${expenses.first().amount}")
+                    } else {
+                        android.util.Log.d("ExpensesFragment", "No expenses found in database")
+                    }
                 }
                 
         } catch (e: Exception) {
@@ -710,6 +726,13 @@ class ExpensesFragment : Fragment() {
                     }
                     
                     android.util.Log.d("ExpensesFragment", "Loaded ${trainees.size} trainees")
+                    
+                    // Log some sample data for debugging
+                    if (trainees.isNotEmpty()) {
+                        android.util.Log.d("ExpensesFragment", "Sample trainee: ${trainees.first().name} - ${trainees.first().paymentAmount}")
+                    } else {
+                        android.util.Log.d("ExpensesFragment", "No trainees found in database")
+                    }
                 }
                 
         } catch (e: Exception) {
@@ -746,6 +769,13 @@ class ExpensesFragment : Fragment() {
                     }
                     
                     android.util.Log.d("ExpensesFragment", "Loaded ${coaches.size} coaches")
+                    
+                    // Log some sample data for debugging
+                    if (coaches.isNotEmpty()) {
+                        android.util.Log.d("ExpensesFragment", "Sample coach: ${coaches.first().name} - ${coaches.first().branch}")
+                    } else {
+                        android.util.Log.d("ExpensesFragment", "No coaches found in database")
+                    }
                 }
                 
         } catch (e: Exception) {
@@ -790,9 +820,14 @@ class ExpensesFragment : Fragment() {
 
     private fun updateExpensesForMonth() {
         try {
+            android.util.Log.d("ExpensesFragment", "Updating expenses for month: $selectedMonth")
+            android.util.Log.d("ExpensesFragment", "Current data - Expenses: ${expenses.size}, Trainees: ${trainees.size}, Coaches: ${coaches.size}")
+            
             // Update adapter's month and refresh totals
             (currentAdapter as? ExpensesAdapter)?.updateSelectedMonth(selectedMonth)
             updateTotals()
+            
+            android.util.Log.d("ExpensesFragment", "Update completed successfully")
         } catch (e: Exception) {
             android.util.Log.e("ExpensesFragment", "Error updating expenses for month: ${e.message}")
         }
