@@ -14,7 +14,8 @@ import java.util.*
 class EmployeeAdapter(
     private val employees: List<Employee>,
     private val onEditClick: (Employee) -> Unit,
-    private val onDeleteClick: (Employee) -> Unit
+    private val onDeleteClick: (Employee) -> Unit,
+    private val onLongClick: (Employee) -> Unit
 ) : RecyclerView.Adapter<EmployeeAdapter.EmployeeViewHolder>() {
 
     private val dateFormat = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
@@ -35,7 +36,10 @@ class EmployeeAdapter(
 
     override fun onBindViewHolder(holder: EmployeeViewHolder, position: Int) {
         val employee = employees[position]
-        
+        holder.itemView.setOnLongClickListener {
+            onLongClick(employee)
+            true
+        }
         holder.tvName.text = employee.name
         holder.tvDetails.text = buildDetailsText(employee)
 

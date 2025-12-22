@@ -294,7 +294,8 @@ class CompletedTraineesFragment : Fragment() {
                 "Completed" -> {
                     android.util.Log.d("CompletedTraineesFragment", "Sorting by Completed sessions")
                     filteredList.sortedBy { trainee ->
-                        val completedSessions = trainee.attendanceSessions.values.count { isPresent -> isPresent }
+                        val completedSessions =
+                            trainee.attendanceSessions.values.count { record -> record.isPresent }
                         android.util.Log.d("CompletedTraineesFragment", "Trainee ${trainee.name}: $completedSessions completed sessions")
                         completedSessions
                     }
@@ -333,7 +334,8 @@ class CompletedTraineesFragment : Fragment() {
                         "Age" -> android.util.Log.d("CompletedTraineesFragment", "${index + 1}. ${trainee.name} - Age: ${trainee.age}")
                         "Status" -> android.util.Log.d("CompletedTraineesFragment", "${index + 1}. ${trainee.name} - Status: ${trainee.status}")
                         "Completed" -> {
-                            val completedSessions = trainee.attendanceSessions.values.count { isPresent -> isPresent }
+                            val completedSessions =
+                                trainee.attendanceSessions.values.count { it.isPresent }
                             android.util.Log.d("CompletedTraineesFragment", "${index + 1}. ${trainee.name} - Completed: $completedSessions")
                         }
                     }

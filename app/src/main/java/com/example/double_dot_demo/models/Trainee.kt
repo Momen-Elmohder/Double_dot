@@ -2,6 +2,7 @@ package com.example.double_dot_demo.models
 
 import com.google.firebase.Timestamp
 
+
 data class Trainee(
     var id: String = "",
     val name: String = "",
@@ -16,7 +17,7 @@ data class Trainee(
     val status: String = "active", // active, inactive, frozen, completed
     val totalSessions: Int = 0,
     val remainingSessions: Int = 0,
-    var attendanceSessions: Map<String, Boolean> = mapOf(), // sessionId -> isPresent
+    var attendanceSessions: Map<String, AttendanceRecord> = mapOf(), // sessionId -> isPresent
     val lastRenewalDate: Timestamp? = null,
     var createdAt: Timestamp = Timestamp.now(),
     val updatedAt: Timestamp = Timestamp.now(),

@@ -15,8 +15,9 @@ import java.text.SimpleDateFormat
 import java.util.*
 
 class AttendanceAdapter(
+    var onAttendanceLongClick: ((Trainee) -> Unit)? = null,
     private val trainees: MutableList<Trainee>,
-    private val onAttendanceUpdate: (Trainee, String, Boolean) -> Unit,
+    private val onAttendanceSwipe: (Trainee, String, Boolean) -> Unit,
     private val onEditTrainee: (Trainee) -> Unit
 ) : RecyclerView.Adapter<AttendanceAdapter.AttendanceViewHolder>() {
 
@@ -47,20 +48,20 @@ class AttendanceAdapter(
     override fun onBindViewHolder(holder: AttendanceViewHolder, position: Int) {
         try {
             val trainee = trainees.getOrNull(position) ?: return
-            
+
             holder.tvName.text = trainee.name
             holder.tvRemainingSessions.text = "${trainee.remainingSessions} sessions remaining"
             holder.tvStatus.text = (trainee.status ?: "unknown").replaceFirstChar { it.uppercase() }
-            
+
             // Calculate attendance stats
             val (presentCount, absentCount) = calculateAttendanceStats(trainee)
             holder.tvPresentCount.text = presentCount.toString()
             holder.tvAbsentCount.text = absentCount.toString()
             holder.tvTotalSessions.text = trainee.totalSessions.toString()
-            
+
             // Update card background based on completion
             updateCardBackground(holder, trainee, presentCount, absentCount)
-            
+
             // Set status color
             try {
                 val statusColor = when (trainee.status) {
@@ -72,7 +73,7 @@ class AttendanceAdapter(
             } catch (e: Exception) {
                 // Use default color if error
             }
-            
+
             // Show expanded details if position is expanded
             if (expandedPositions.contains(position)) {
                 holder.expandedDetails.visibility = View.VISIBLE
@@ -80,40 +81,51 @@ class AttendanceAdapter(
             } else {
                 holder.expandedDetails.visibility = View.GONE
             }
-            
+
             // Setup long press for detailed attendance editing
             holder.cardView.setOnLongClickListener {
                 toggleExpanded(position)
                 true
             }
-            
+
                          // Setup undo button
              val totalCompleted = presentCount + absentCount
-             
+
              android.util.Log.d("AttendanceAdapter", "Trainee: ${trainee.name}, Present: $presentCount, Absent: $absentCount, Total: $totalCompleted")
-             
+
              // Show undo button only if there are completed sessions
              if (totalCompleted > 0) {
                  holder.btnUndo.visibility = View.VISIBLE
                  android.util.Log.d("AttendanceAdapter", "Showing undo button for ${trainee.name} - Setting visibility to VISIBLE")
-                 
+
                  // Force a layout update
                  holder.btnUndo.requestLayout()
-                 
+
                  holder.btnUndo.setOnClickListener {
-                     // Find the last completed session and remove it
                      val lastCompletedSession = findLastCompletedSession(trainee)
                      if (lastCompletedSession != null) {
-                         android.util.Log.d("AttendanceAdapter", "Undoing session: $lastCompletedSession")
-                         // Call the update with false to indicate removal
-                         onAttendanceUpdate(trainee, lastCompletedSession, false)
+                         // Explicit undo: remove session
+                         val updatedSessions = trainee.attendanceSessions.toMutableMap()
+                         updatedSessions.remove(lastCompletedSession)
+
+                         // Update trainee locally
+                         trainee.attendanceSessions = updatedSessions
+
+                         // Notify UI
+                         notifyItemChanged(position)
+
+                         // Persist to Firestore
+                         com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                             .collection("trainees")
+                             .document(trainee.id)
+                             .update("attendanceSessions", updatedSessions)
                      }
                  }
              } else {
                  holder.btnUndo.visibility = View.GONE
                  android.util.Log.d("AttendanceAdapter", "Hiding undo button for ${trainee.name} - no completed sessions")
              }
-            
+
         } catch (e: Exception) {
             android.util.Log.e("AttendanceAdapter", "Error binding view holder: ${e.message}")
         }
@@ -125,11 +137,11 @@ class AttendanceAdapter(
         return try {
             var presentCount = 0
             var absentCount = 0
-            
-            trainee.attendanceSessions.forEach { (_, isPresent) ->
-                if (isPresent) presentCount++ else absentCount++
+
+            trainee.attendanceSessions.forEach { (_, record) ->
+                if (record.isPresent) presentCount++ else absentCount++
             }
-            
+
             Pair(presentCount, absentCount)
         } catch (e: Exception) {
             android.util.Log.e("AttendanceAdapter", "Error calculating stats: ${e.message}")
@@ -141,7 +153,7 @@ class AttendanceAdapter(
         try {
             val totalCompleted = presentCount + absentCount
             val remainingSessions = trainee.totalSessions - totalCompleted
-            
+
             val backgroundColor = when {
                 totalCompleted >= trainee.totalSessions -> {
                     holder.itemView.context.getColor(R.color.error_light) // Red background when completed
@@ -153,7 +165,7 @@ class AttendanceAdapter(
                     holder.itemView.context.getColor(R.color.surface_light) // Normal background
                 }
             }
-            
+
             holder.cardView.setCardBackgroundColor(backgroundColor)
         } catch (e: Exception) {
             android.util.Log.e("AttendanceAdapter", "Error updating background: ${e.message}")
@@ -165,33 +177,35 @@ class AttendanceAdapter(
             // Update detailed counters
             holder.tvDetailedPresentCount.text = presentCount.toString()
             holder.tvDetailedAbsentCount.text = absentCount.toString()
-            
-            // Show session buttons as simple text display
-            val sessionButtonsText = buildString {
-                for (i in 1..trainee.totalSessions) {
-                    val sessionId = "session_$i"
-                    val isPresent = trainee.attendanceSessions[sessionId]
-                    when (isPresent) {
-                        true -> append("🟢") // Green circle for present
-                        false -> append("🔴") // Red circle for absent
-                        null -> append("⚪") // White circle for not completed
+
+            val detailsText = buildString {
+                var presentIndex = 1
+                var absentIndex = 1
+
+                trainee.attendanceSessions
+                    .toSortedMap(compareBy { it.removePrefix("session_").toIntOrNull() ?: 0 })
+                    .forEach { (sessionId, record) ->
+
+                        if (record.isPresent) {
+                            if (presentIndex == 1) append("Present:\n")
+                            append("${presentIndex}) ${record.note.ifBlank { "No note" }}\n")
+                            presentIndex++
+                        } else {
+                            if (absentIndex == 1) {
+                                if (presentIndex > 1) append("\n")
+                                append("Absent:\n")
+                            }
+                            append("${absentIndex}) ${record.note.ifBlank { "No note" }}\n")
+                            absentIndex++
+                        }
                     }
-                    if (i < trainee.totalSessions) append(" ")
-                }
             }
-            
-            // Create a simple TextView to show session status
-            val sessionStatusView = android.widget.TextView(holder.itemView.context).apply {
-                text = sessionButtonsText
-                textSize = 16f
-                setPadding(16, 8, 16, 8)
-                gravity = android.view.Gravity.CENTER
-            }
-            
-            // Clear existing views and add the new one
-            holder.rvSessionButtons.removeAllViews()
-            holder.rvSessionButtons.addView(sessionStatusView)
-            
+
+            holder.rvSessionButtons.layoutManager =
+                LinearLayoutManager(holder.itemView.context)
+
+            holder.rvSessionButtons.adapter = SessionTextAdapter(detailsText.trim())
+
         } catch (e: Exception) {
             android.util.Log.e("AttendanceAdapter", "Error setting up detailed attendance: ${e.message}")
         }
@@ -220,11 +234,11 @@ class AttendanceAdapter(
             isCurrentlyActive: Boolean
         ) {
             super.onChildDraw(c, recyclerView, viewHolder, dX, dY, actionState, isCurrentlyActive)
-            
+
             // Add visual feedback for swipe direction
             val itemView = viewHolder.itemView
             val background = android.graphics.drawable.ColorDrawable()
-            
+
             when {
                 dX > 0 -> {
                     // Swiping right (present) - green background
@@ -245,37 +259,27 @@ class AttendanceAdapter(
         }
 
         override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {
-            try {
-                val position = viewHolder.adapterPosition
-                if (position == RecyclerView.NO_POSITION) return
-                
-                val trainee = trainees.getOrNull(position) ?: return
-                
-                // Check if all sessions are completed
-                val (presentCount, absentCount) = calculateAttendanceStats(trainee)
-                val totalCompleted = presentCount + absentCount
-                
-                if (totalCompleted >= trainee.totalSessions) {
-                    // Block further swiping - restore the item
-                    notifyItemChanged(position)
-                    return
-                }
-                
-                // Find the next available session
-                val nextSessionId = findNextAvailableSession(trainee)
-                if (nextSessionId != null) {
-                    val isPresent = direction == ItemTouchHelper.RIGHT
-                    android.util.Log.d("AttendanceAdapter", "Swipe detected - Direction: $direction, Session: $nextSessionId, IsPresent: $isPresent")
-                    onAttendanceUpdate(trainee, nextSessionId, isPresent)
-                } else {
-                    android.util.Log.d("AttendanceAdapter", "No available sessions to mark")
-                }
-                
-                // Don't call notifyItemChanged here - let the fragment handle the UI update
-                
-            } catch (e: Exception) {
-                android.util.Log.e("AttendanceAdapter", "Error handling swipe: ${e.message}")
+            val position = viewHolder.adapterPosition
+            if (position == RecyclerView.NO_POSITION) return
+
+            val trainee = trainees[position]
+
+            val (presentCount, absentCount) = calculateAttendanceStats(trainee)
+            val totalCompleted = presentCount + absentCount
+
+            if (totalCompleted >= trainee.totalSessions) {
+                notifyItemChanged(position)
+                return
             }
+
+            val nextSessionId = findNextAvailableSession(trainee)
+            if (nextSessionId != null) {
+                val isPresent = direction == ItemTouchHelper.RIGHT
+                onAttendanceSwipe(trainee, nextSessionId, isPresent)
+            }
+
+            // Reset card position after swipe
+            notifyItemChanged(position)
         }
 
         private fun findNextAvailableSession(trainee: Trainee): String? {
@@ -293,7 +297,7 @@ class AttendanceAdapter(
             }
         }
     }
-    
+
     private fun findLastCompletedSession(trainee: Trainee): String? {
         return try {
             for (i in trainee.totalSessions downTo 1) {
@@ -308,4 +312,26 @@ class AttendanceAdapter(
             null
         }
     }
-} 
+
+    inner class SessionTextAdapter(
+        private val text: String
+    ) : RecyclerView.Adapter<SessionTextAdapter.VH>() {
+
+        inner class VH(val tv: TextView) : RecyclerView.ViewHolder(tv)
+
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
+            val tv = TextView(parent.context).apply {
+                textSize = 16f
+                setPadding(16, 8, 16, 8)
+                gravity = android.view.Gravity.CENTER
+            }
+            return VH(tv)
+        }
+
+        override fun onBindViewHolder(holder: VH, position: Int) {
+            holder.tv.text = text
+        }
+
+        override fun getItemCount(): Int = 1
+    }
+}

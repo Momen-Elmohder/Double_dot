@@ -218,6 +218,53 @@ class TraineesFragment : Fragment() {
         }
     }
 
+    private fun migrateAttendanceIfNeeded(
+        traineeId: String,
+        attendanceSessions: Map<String, Any>
+    ) {
+        val migratedMap = mutableMapOf<String, Any>()
+        var needsMigration = false
+
+        attendanceSessions.forEach { (sessionId, value) ->
+            when (value) {
+                is Boolean -> {
+                    // OLD FORMAT → convert
+                    needsMigration = true
+                    migratedMap[sessionId] = mapOf(
+                        "isPresent" to value,
+                        "note" to ""
+                    )
+                }
+                is Map<*, *> -> {
+                    // Already new format → keep
+                    migratedMap[sessionId] = value
+                }
+            }
+        }
+
+        if (needsMigration) {
+            android.util.Log.d(
+                "Migration",
+                "Migrating attendance for trainee: $traineeId"
+            )
+
+            firestore.collection("trainees")
+                .document(traineeId)
+                .update("attendanceSessions", migratedMap)
+                .addOnSuccessListener {
+                    android.util.Log.d(
+                        "Migration",
+                        "Migration completed for trainee: $traineeId"
+                    )
+                }
+                .addOnFailureListener { e ->
+                    android.util.Log.e(
+                        "Migration",
+                        "Migration failed for trainee: $traineeId → ${e.message}"
+                    )
+                }
+        }
+    }
     private fun setupSearchAndSort() {
         // Setup search functionality with debouncing
         binding.etSearch.addTextChangedListener(object : TextWatcher {
@@ -314,67 +361,89 @@ class TraineesFragment : Fragment() {
     private fun loadTrainees() {
         try {
             android.util.Log.d("TraineesFragment", "Loading trainees for role: $currentUserRole")
-            
-            // Load trainees based on user role
-            val query = if (roleEnum == Role.COACH) {
-                // Coaches can only see their own trainees
-                val coachId = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid
-                android.util.Log.d("TraineesFragment", "Coach ID: $coachId")
-                // Temporarily load all trainees for coaches to test visibility
-                firestore.collection("trainees")
-                    .orderBy("name", com.google.firebase.firestore.Query.Direction.ASCENDING)
-            } else {
-                // Head coaches and admins can see all trainees
-                android.util.Log.d("TraineesFragment", "Loading all trainees for admin/head coach")
-                firestore.collection("trainees")
-                    .orderBy("name", com.google.firebase.firestore.Query.Direction.ASCENDING)
-            }
-            
-            traineesListener = query.addSnapshotListener { snapshot, e ->
-                if (e != null) {
-                    android.util.Log.w("TraineesFragment", "Query failed: ${e.message}")
+
+            val query = firestore.collection("trainees")
+                .orderBy("name", com.google.firebase.firestore.Query.Direction.ASCENDING)
+
+            traineesListener?.remove()
+            traineesListener = query.addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    android.util.Log.e("TraineesFragment", "Firestore error: ${error.message}")
                     return@addSnapshotListener
                 }
 
-                if (isAdded) {
-                    // Process data in background
-                    PerformanceUtils.launchInBackground {
-                        try {
-                            val newTrainees = mutableListOf<Trainee>()
-                            android.util.Log.d("TraineesFragment", "Snapshot size: ${snapshot?.size() ?: 0}")
-                            
-                            if (snapshot != null) {
-                                for (document in snapshot) {
-                                    val trainee = document.toObject(Trainee::class.java)
-                                    trainee?.let { originalTrainee ->
-                                        val traineeWithId = originalTrainee.copy(id = document.id)
-                                        newTrainees.add(traineeWithId)
-                                        android.util.Log.d("TraineesFragment", "Added trainee: ${traineeWithId.name}")
-                                    }
-                                }
-                            }
+                if (!isAdded || snapshot == null) return@addSnapshotListener
 
-                            // Update UI on main thread
-                            PerformanceUtils.runOnMainThread {
-                                try {
-                                    trainees.clear()
-                                    trainees.addAll(newTrainees)
-                                    android.util.Log.d("TraineesFragment", "Total trainees loaded: ${trainees.size}")
-                                    filterAndSortTrainees()
-                                } catch (e: Exception) {
-                                    android.util.Log.e("TraineesFragment", "Error updating UI: ${e.message}")
-                                }
+                PerformanceUtils.launchInBackground {
+                    val newTrainees = mutableListOf<Trainee>()
+
+                    android.util.Log.d(
+                        "TraineesFragment",
+                        "Snapshot received. Documents count: ${snapshot.size()}"
+                    )
+
+                    for (document in snapshot.documents) {
+                        try {
+                            // 🔹 Read raw attendance map safely
+                            val rawAttendance =
+                                document.get("attendanceSessions") as? Map<String, Any> ?: emptyMap()
+
+                            // 🔹 Migrate old Boolean attendance if needed
+                            migrateAttendanceIfNeeded(document.id, rawAttendance)
+
+                            // 🔹 Convert document to Trainee AFTER migration
+                            val trainee = document.toObject(Trainee::class.java)
+
+                            if (trainee != null) {
+                                val traineeWithId = trainee.copy(id = document.id)
+                                newTrainees.add(traineeWithId)
+
+                                android.util.Log.d(
+                                    "TraineesFragment",
+                                    "Loaded trainee: ${traineeWithId.name}"
+                                )
+                            } else {
+                                android.util.Log.w(
+                                    "TraineesFragment",
+                                    "Skipped trainee ${document.id} due to mapping failure"
+                                )
                             }
                         } catch (e: Exception) {
-                            android.util.Log.e("TraineesFragment", "Error processing trainees: ${e.message}")
+                            android.util.Log.e(
+                                "TraineesFragment",
+                                "Error parsing trainee ${document.id}: ${e.message}"
+                            )
+                        }
+                    }
+
+                    PerformanceUtils.runOnMainThread {
+                        try {
+                            trainees.clear()
+                            trainees.addAll(newTrainees)
+
+                            android.util.Log.d(
+                                "TraineesFragment",
+                                "Total trainees loaded: ${trainees.size}"
+                            )
+
+                            filterAndSortTrainees()
+                        } catch (e: Exception) {
+                            android.util.Log.e(
+                                "TraineesFragment",
+                                "UI update error: ${e.message}"
+                            )
                         }
                     }
                 }
             }
         } catch (e: Exception) {
-            android.util.Log.e("TraineesFragment", "Error loading trainees: ${e.message}")
+            android.util.Log.e("TraineesFragment", "loadTrainees failed: ${e.message}")
             if (isAdded) {
-                Toast.makeText(requireContext(), "Error loading trainees: ${e.message}", Toast.LENGTH_SHORT).show()
+                Toast.makeText(
+                    requireContext(),
+                    "Failed to load trainees",
+                    Toast.LENGTH_SHORT
+                ).show()
             }
         }
     }
@@ -425,7 +494,8 @@ class TraineesFragment : Fragment() {
                     "completed" -> {
                         android.util.Log.d("TraineesFragment", "Sorting by Completed sessions")
                         newFilteredTrainees.sortedBy { trainee ->
-                            val completedSessions = trainee.attendanceSessions.values.count { isPresent -> isPresent }
+                            val completedSessions =
+                                trainee.attendanceSessions.values.count { record -> record.isPresent }
                             android.util.Log.d("TraineesFragment", "Trainee ${trainee.name}: $completedSessions completed sessions")
                             completedSessions
                         }
@@ -454,16 +524,16 @@ class TraineesFragment : Fragment() {
                         newFilteredTrainees.sortedBy { it.age }
                     }
                 }
-                
+
                 // Update UI on main thread
                 PerformanceUtils.runOnMainThread {
                     try {
                         filteredTrainees.clear()
                         filteredTrainees.addAll(sortedList)
-                        
+
                         // Update adapter with new data
                         traineeAdapter.submitList(filteredTrainees.toList())
-                        
+
                         // Log the first few trainees to verify sorting
                         if (filteredTrainees.isNotEmpty()) {
                             android.util.Log.d("TraineesFragment", "First 3 trainees after sorting:")
@@ -472,7 +542,8 @@ class TraineesFragment : Fragment() {
                                     "age" -> android.util.Log.d("TraineesFragment", "${index + 1}. ${trainee.name} - Age: ${trainee.age}")
                                     "status" -> android.util.Log.d("TraineesFragment", "${index + 1}. ${trainee.name} - Status: ${trainee.status}")
                                     "completed" -> {
-                                        val completedSessions = trainee.attendanceSessions.values.count { isPresent -> isPresent }
+                                        val completedSessions =
+                                            trainee.attendanceSessions.values.count { it.isPresent }
                                         android.util.Log.d("TraineesFragment", "${index + 1}. ${trainee.name} - Completed sessions: $completedSessions")
                                     }
                                     "active" -> android.util.Log.d("TraineesFragment", "${index + 1}. ${trainee.name} - Status: ${trainee.status}")
@@ -760,7 +831,7 @@ class TraineesFragment : Fragment() {
                 "paymentAmount" to newPaymentAmount,
                 "isPaid" to true, // Trainees are automatically paid
                 "lastRenewalDate" to Timestamp.now(),
-                "attendanceSessions" to hashMapOf<String, Boolean>() // Reset attendance to empty
+                "attendanceSessions" to hashMapOf<String, Any>() // Reset attendance to empty
             )
             
             firestore.collection("trainees").document(trainee.id)

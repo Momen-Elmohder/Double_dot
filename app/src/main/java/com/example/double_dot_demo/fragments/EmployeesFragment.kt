@@ -137,23 +137,37 @@ class EmployeesFragment : Fragment() {
     private fun setupRecyclerView() {
         employeeAdapter = EmployeeAdapter(
             employees = filteredEmployees,
-            onEditClick = { employee -> 
+
+            onEditClick = { employee ->
                 if (canEditEmployee(employee)) {
                     showEditEmployeeDialog(employee)
                 } else {
                     if (isAdded) {
-                        Toast.makeText(requireContext(), "You don't have permission to edit this employee", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(
+                            requireContext(),
+                            "You don't have permission to edit this employee",
+                            Toast.LENGTH_SHORT
+                        ).show()
                     }
                 }
             },
-            onDeleteClick = { employee -> 
+
+            onDeleteClick = { employee ->
                 if (canDeleteEmployee(employee)) {
                     deleteEmployee(employee)
                 } else {
                     if (isAdded) {
-                        Toast.makeText(requireContext(), "You don't have permission to delete this employee", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(
+                            requireContext(),
+                            "You don't have permission to delete this employee",
+                            Toast.LENGTH_SHORT
+                        ).show()
                     }
                 }
+            },
+
+            onLongClick = { employee ->
+                showEmployeeDetailsDialog(employee)
             }
         )
 
