@@ -6,15 +6,14 @@ import android.view.ViewGroup
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 import com.example.double_dot_demo.R
-import com.example.double_dot_demo.dialogs.SalaryDetailsDialog
 import com.example.double_dot_demo.models.Salary
 import com.google.android.material.card.MaterialCardView
 import java.text.NumberFormat
-import java.text.SimpleDateFormat
 import java.util.*
 
 class SalaryAdapter(
-    private val salaries: List<Salary>
+    private val salaries: List<Salary>,
+    private val onExportPdf: (Salary) -> Unit
 ) : RecyclerView.Adapter<SalaryAdapter.SalaryViewHolder>() {
 
     private val numberFormat = NumberFormat.getCurrencyInstance(Locale.US)
@@ -39,9 +38,9 @@ class SalaryAdapter(
     override fun onBindViewHolder(holder: SalaryViewHolder, position: Int) {
         try {
             val salary = salaries.getOrNull(position) ?: return
-            
+
             android.util.Log.d("SalaryAdapter", "Binding salary for ${salary.employeeName}: final salary: $${String.format("%.2f", salary.finalSalary)}")
-            
+
             // Basic info
             holder.tvCoachName.text = "${salary.employeeName} - ${getMonthDisplayName(salary.month)}"
             holder.tvTotalPayments.text = numberFormat.format(salary.totalPayments)
@@ -52,7 +51,7 @@ class SalaryAdapter(
             holder.tvDeduction.text = numberFormat.format(salary.deductionAmount)
             holder.tvFinalSalary.text = numberFormat.format(salary.finalSalary)
             holder.tvTraineeCount.text = "${salary.totalTrainees} trainees"
-            
+
             // Set colors based on values
             val absenceColor = when {
                 salary.absencePercentage <= 5 -> holder.itemView.context.getColor(R.color.success_light)
@@ -60,20 +59,72 @@ class SalaryAdapter(
                 else -> holder.itemView.context.getColor(R.color.error_light)
             }
             holder.tvAbsencePercent.setTextColor(absenceColor)
-            
+
             val salaryColor = when {
                 salary.finalSalary > 0 -> holder.itemView.context.getColor(R.color.success_light)
                 else -> holder.itemView.context.getColor(R.color.error_light)
             }
             holder.tvFinalSalary.setTextColor(salaryColor)
-            
+
             // Add long press listener to show details
             holder.cardView.setOnLongClickListener {
-                val detailsDialog = SalaryDetailsDialog(holder.itemView.context, salary)
-                detailsDialog.show()
-                true // Consume the long click event
+                val context = holder.itemView.context
+
+                val traineesText =
+                    if (salary.traineeDetails.isEmpty()) {
+                        "No trainees"
+                    } else {
+                        salary.traineeDetails.joinToString("\n") {
+                            "• ${it.traineeName}  ${numberFormat.format(it.monthlyFee)}"
+                        }
+                    }
+
+                val notesText =
+                    if (salary.deductionDetails.isEmpty()) {
+                        "No attendance notes"
+                    } else {
+                        salary.deductionDetails.joinToString("\n") {
+                            "• ${it.description} (${numberFormat.format(it.amount)})"
+                        }
+                    }
+
+                val message = """
+Employee: ${salary.employeeName}
+Month: ${salary.month}
+Role: ${salary.role}
+
+──────── Salary Breakdown ────────
+Total Income: ${numberFormat.format(salary.totalPayments)}
+Final Salary: ${numberFormat.format(salary.finalSalary)}
+
+──────── Trainees (${salary.totalTrainees}) ────────
+$traineesText
+
+──────── Attendance ────────
+Working Days: ${salary.totalWorkingDays}
+Absence Days: ${salary.absenceDays}
+Absence Rate: ${String.format("%.1f", salary.absencePercentage)}%
+
+──────── Deductions ────────
+${numberFormat.format(salary.deductionAmount)}
+
+──────── Attendance Notes ────────
+$notesText
+""".trimIndent()
+
+                androidx.appcompat.app.AlertDialog.Builder(context)
+                    .setTitle("Salary Details")
+                    .setMessage(message)
+                    .setPositiveButton("OK", null)
+                    .setNeutralButton("Export PDF") { _, _ ->
+                        onExportPdf(salary)
+                    }
+                    .show()
+
+                true
             }
-            
+
+
         } catch (e: Exception) {
             android.util.Log.e("SalaryAdapter", "Error binding salary data: ${e.message}")
         }

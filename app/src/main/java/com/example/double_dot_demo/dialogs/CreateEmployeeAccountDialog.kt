@@ -2,6 +2,7 @@ package com.example.double_dot_demo.dialogs
 
 import android.content.Context
 import android.view.LayoutInflater
+import android.view.View
 import android.widget.ArrayAdapter
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
@@ -43,11 +44,11 @@ class CreateEmployeeAccountDialog(
         }
 
         binding = DialogCreateEmployeeAccountBinding.inflate(LayoutInflater.from(context))
-        
+
         setupViews()
         setupRoleDropdown()
         setupBranchDropdown()
-        
+
         dialog = AlertDialog.Builder(context)
             .setView(binding.root)
             .setCancelable(false)
@@ -83,8 +84,25 @@ class CreateEmployeeAccountDialog(
         val branches = listOf("نادي التوكيلات", "نادي اليخت", "المدينة الرياضية")
         val adapter = ArrayAdapter(context, android.R.layout.simple_dropdown_item_1line, branches)
         binding.actvBranch.setAdapter(adapter)
+
         binding.actvBranch.setOnClickListener { binding.actvBranch.showDropDown() }
-        binding.actvBranch.setOnFocusChangeListener { _, hasFocus -> if (hasFocus) binding.actvBranch.showDropDown() }
+        binding.actvBranch.setOnFocusChangeListener { _, hasFocus ->
+            if (hasFocus) binding.actvBranch.showDropDown()
+        }
+
+        binding.actvBranch.setOnItemClickListener { _, _, _, _ ->
+            val branch = binding.actvBranch.text.toString().trim()
+
+            if (branch == "المدينة الرياضية") {
+                binding.tilSalary.visibility = View.VISIBLE
+                binding.tilTotalDays.visibility = View.GONE
+                binding.etTotalDays.setText("")
+            } else {
+                binding.tilSalary.visibility = View.GONE
+                binding.etSalary.setText("")
+                binding.tilTotalDays.visibility = View.VISIBLE
+            }
+        }
     }
 
     private fun validateInputs(): Boolean {
@@ -103,8 +121,6 @@ class CreateEmployeeAccountDialog(
         if (phone.isEmpty()) { binding.tilPhone.error = "Phone number is required"; return false }
         if (branch.isEmpty()) { binding.tilBranch.error = "Please select a branch"; return false }
         if (role.isEmpty()) { binding.tilRole.error = "Please select a role"; return false }
-        if (totalDaysText.isEmpty()) { binding.tilTotalDays.error = "Total days is required"; return false }
-        val totalDays = totalDaysText.toIntOrNull(); if (totalDays == null || totalDays <= 0) { binding.tilTotalDays.error = "Please enter a valid number of days"; return false }
         if (password.isEmpty()) { binding.tilPassword.error = "Password is required"; return false }
         if (password.length < 6) { binding.tilPassword.error = "Password must be at least 6 characters"; return false }
         if (confirmPassword.isEmpty()) { binding.tilConfirmPassword.error = "Please confirm password"; return false }
@@ -119,7 +135,20 @@ class CreateEmployeeAccountDialog(
         val selectedRole = binding.actvRole.text.toString().trim()
         val branch = binding.actvBranch.text.toString().trim()
         val password = binding.etPassword.text.toString()
-        val totalDays = binding.etTotalDays.text.toString().trim().toInt()
+
+        val salary =
+            if (branch == "المدينة الرياضية")
+                binding.etSalary.text.toString().toDoubleOrNull() ?: 0.0
+            else 0.0
+
+        if (branch == "المدينة الرياضية" && salary <= 0.0) {
+            Toast.makeText(context, "Please enter salary for المدينة الرياضية", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val totalDays =
+            if (branch == "المدينة الرياضية") 30
+            else binding.etTotalDays.text.toString().trim().toIntOrNull() ?: 0
 
         val role = when (selectedRole.lowercase()) {
             "coach" -> "coach"
@@ -150,6 +179,7 @@ class CreateEmployeeAccountDialog(
                     branch = branch,
                     totalDays = totalDays,
                     remainingDays = totalDays,
+                    salary = salary,
                     status = "active",
                     createdAt = Timestamp.now(),
                     updatedAt = Timestamp.now()
@@ -197,4 +227,4 @@ class CreateEmployeeAccountDialog(
         binding.btnCreateAccount.text = "Create Account"
         Toast.makeText(context, message, Toast.LENGTH_LONG).show()
     }
-} 
+}

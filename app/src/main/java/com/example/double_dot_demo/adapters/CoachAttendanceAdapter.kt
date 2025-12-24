@@ -14,8 +14,9 @@ import java.util.*
 
 class CoachAttendanceAdapter(
     private val coaches: List<Employee>,
-    private val onAttendanceUpdated: (Employee, Boolean) -> Unit,
-    private val onUndoAttendance: (Employee) -> Unit
+    private val onAttendanceUpdated: (Employee, Boolean, String) -> Unit,
+    private val onUndoAttendance: (Employee) -> Unit,
+    private val onShowDetails: (Employee) -> Unit
 ) : RecyclerView.Adapter<CoachAttendanceAdapter.CoachAttendanceViewHolder>() {
 
     private val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
@@ -45,15 +46,15 @@ class CoachAttendanceAdapter(
     override fun onBindViewHolder(holder: CoachAttendanceViewHolder, position: Int) {
         try {
             val coach = coaches[position]
-            
+
             holder.tvCoachName.text = coach.name
             holder.tvBranch.text = "Branch: ${coach.branch}"
             holder.tvTotalDays.text = "Total Days: ${coach.totalDays}"
-            
+
             val (presentCount, absentCount) = calculateAttendanceStats(coach)
             holder.tvPresentCount.text = "Present: $presentCount"
             holder.tvAbsentCount.text = "Absent: $absentCount"
-            
+
             val mostRecentAttendance = getMostRecentAttendance(coach)
             when (mostRecentAttendance) {
                 true -> {
@@ -72,9 +73,9 @@ class CoachAttendanceAdapter(
                     holder.btnUndo.visibility = View.GONE
                 }
             }
-            
+
             holder.btnUndo.setOnClickListener { onUndoAttendance(coach) }
-            
+
             val totalMarkedDays = presentCount + absentCount
             if (totalMarkedDays >= coach.totalDays) {
                 holder.cardView.alpha = 0.6f
@@ -82,6 +83,11 @@ class CoachAttendanceAdapter(
                 holder.tvTodayStatus.setTextColor(holder.itemView.context.getColor(R.color.text_secondary_light))
             } else {
                 holder.cardView.alpha = 1.0f
+            }
+
+            holder.cardView.setOnLongClickListener {
+                onShowDetails(coach)
+                true
             }
         } catch (e: Exception) {
             android.util.Log.e("CoachAttendanceAdapter", "Error binding view holder: ${e.message}")
@@ -101,6 +107,26 @@ class CoachAttendanceAdapter(
 
     private fun getMostRecentAttendance(coach: Employee): Boolean? {
         return try { coach.attendanceDays.entries.sortedByDescending { it.key }.firstOrNull()?.value } catch (e: Exception) { null }
+    }
+
+    private fun showNoteDialog(
+        context: android.content.Context,
+        coach: Employee,
+        isPresent: Boolean
+    ) {
+        val input = android.widget.EditText(context).apply {
+            hint = if (isPresent) "Optional note" else "Reason for absence"
+        }
+
+        android.app.AlertDialog.Builder(context)
+            .setTitle(if (isPresent) "Mark Present" else "Mark Absent")
+            .setView(input)
+            .setPositiveButton("Save") { _, _ ->
+                val note = input.text.toString().trim()
+                onAttendanceUpdated(coach, isPresent, note)
+            }
+            .setNegativeButton("Cancel") { _, _ -> notifyDataSetChanged() }
+            .show()
     }
 
     fun setupSwipeCallback(recyclerView: RecyclerView) {
@@ -131,7 +157,7 @@ class CoachAttendanceAdapter(
                                 return
                             }
                             val isPresent = direction == ItemTouchHelper.RIGHT
-                            onAttendanceUpdated(coach, isPresent)
+                            showNoteDialog(recyclerView.context, coach, isPresent)
                         }
                     } catch (_: Exception) {}
                 }
@@ -139,4 +165,4 @@ class CoachAttendanceAdapter(
             ItemTouchHelper(swipeCallback).attachToRecyclerView(recyclerView)
         } catch (_: Exception) {}
     }
-} 
+}

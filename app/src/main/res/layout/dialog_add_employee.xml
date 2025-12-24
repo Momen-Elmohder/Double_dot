@@ -137,6 +137,29 @@
 
         </com.google.android.material.textfield.TextInputLayout>
 
+        <!-- Salary Input (Visible only for المدينة الرياضية) -->
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/tilSalary"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            android:hint="Salary (divided by 8 sessions)"
+            android:visibility="gone"
+            app:startIconTint="?attr/colorPrimary"
+            app:boxStrokeColor="?attr/colorPrimary"
+            app:hintTextColor="?attr/colorPrimary"
+            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/etSalary"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="numberDecimal"
+                android:maxLines="1"
+                android:textColor="?attr/colorOnSurface" />
+
+        </com.google.android.material.textfield.TextInputLayout>
+
         <!-- Total Days Input -->
         <com.google.android.material.textfield.TextInputLayout
             android:id="@+id/tilTotalDays"

@@ -211,7 +211,13 @@ class SalaryFragment : Fragment() {
             } else {
                 recyclerView?.visibility = View.VISIBLE
                 tvNoSalaries?.visibility = View.GONE
-                currentAdapter = SalaryAdapter(filtered)
+                currentAdapter = SalaryAdapter(filtered) { salary ->
+                    // Reuse EXISTING PDF maker (single salary)
+                    exportPdf(
+                        month = salary.month,
+                        salaries = listOf(salary)
+                    )
+                }
                 recyclerView?.adapter = currentAdapter
             }
         } catch (e: Exception) {
@@ -251,10 +257,85 @@ class SalaryFragment : Fragment() {
             var page = newPage()
             var totalFinal = 0.0
             salaries.forEach { s ->
-                val line = "${s.employeeName}  |  ${s.role}  |  ${String.format("%.2f", s.finalSalary)}"
-                if (y > pageHeight - 40) { pdf.finishPage(page); page = newPage() }
-                page.canvas.drawText(line, 40f, y.toFloat(), paint)
+
+                if (y > pageHeight - 120) {
+                    pdf.finishPage(page)
+                    page = newPage()
+                }
+
+                // Employee header
+                page.canvas.drawText("Employee: ${s.employeeName}", 40f, y.toFloat(), titlePaint)
+                y += 22
+                page.canvas.drawText("Role: ${s.role}", 40f, y.toFloat(), paint)
+                y += 16
+                page.canvas.drawText("Final Salary: ${String.format("%.2f", s.finalSalary)}", 40f, y.toFloat(), paint)
+                y += 20
+
+                // Trainees
+                page.canvas.drawText("Trainees (${s.totalTrainees})", 40f, y.toFloat(), titlePaint)
                 y += 18
+                if (s.traineeDetails.isEmpty()) {
+                    page.canvas.drawText("No trainees", 60f, y.toFloat(), paint)
+                    y += 16
+                } else {
+                    s.traineeDetails.forEach {
+                        page.canvas.drawText(
+                            "• ${it.traineeName} — ${String.format("%.2f", it.monthlyFee)}",
+                            60f,
+                            y.toFloat(),
+                            paint
+                        )
+                        y += 16
+                    }
+                }
+
+                y += 10
+
+                // Attendance
+                page.canvas.drawText("Attendance", 40f, y.toFloat(), titlePaint)
+                y += 18
+                page.canvas.drawText("Working Days: ${s.totalWorkingDays}", 60f, y.toFloat(), paint)
+                y += 16
+                page.canvas.drawText("Absence Days: ${s.absenceDays}", 60f, y.toFloat(), paint)
+                y += 16
+                page.canvas.drawText(
+                    "Absence Rate: ${String.format("%.1f", s.absencePercentage)}%",
+                    60f,
+                    y.toFloat(),
+                    paint
+                )
+                y += 20
+
+                // Deductions
+                page.canvas.drawText("Deductions", 40f, y.toFloat(), titlePaint)
+                y += 18
+                page.canvas.drawText(
+                    "Total Deduction: ${String.format("%.2f", s.deductionAmount)}",
+                    60f,
+                    y.toFloat(),
+                    paint
+                )
+                y += 16
+
+                // Attendance notes
+                page.canvas.drawText("Attendance Notes", 40f, y.toFloat(), titlePaint)
+                y += 18
+                if (s.deductionDetails.isEmpty()) {
+                    page.canvas.drawText("No attendance notes", 60f, y.toFloat(), paint)
+                    y += 16
+                } else {
+                    s.deductionDetails.forEach {
+                        page.canvas.drawText(
+                            "• ${it.description} (${String.format("%.2f", it.amount)})",
+                            60f,
+                            y.toFloat(),
+                            paint
+                        )
+                        y += 16
+                    }
+                }
+
+                y += 30
                 totalFinal += s.finalSalary
             }
             if (y > pageHeight - 40) { pdf.finishPage(page); page = newPage() }
@@ -290,17 +371,16 @@ class SalaryFragment : Fragment() {
     private fun showToast(message: String) { Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show() }
 
     private fun debugDatabaseState() {
-        lifecycleScope.launch { 
-            try { 
+        lifecycleScope.launch {
+            try {
                 // Test month format normalization
                 MonthFormatMigration.testMonthFormatNormalization()
-                salaryManager.debugDatabaseState() 
+                salaryManager.debugDatabaseState()
             } catch (e: Exception) {
                 android.util.Log.e("SalaryFragment", "Debug error: ${e.message}")
-            } 
+            }
         }
     }
 
     companion object { fun newInstance(): SalaryFragment = SalaryFragment() }
 }
-

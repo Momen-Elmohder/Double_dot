@@ -7,6 +7,7 @@ import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
 import java.text.SimpleDateFormat
 import java.util.*
+import com.example.double_dot_demo.models.Employee
 
 class SalaryManager {
     private val db = FirebaseFirestore.getInstance()
@@ -263,53 +264,129 @@ class SalaryManager {
         }
     }
     
+    private suspend fun getCoachMonthlyAttendance(
+        coachId: String,
+        month: String
+    ): Pair<Int, Int> {
+        val doc = db.collection("employees")
+            .document(coachId)
+            .collection("coachAttendance")
+            .document(month)
+            .get()
+            .await()
+
+        val records = doc.get("records") as? List<Map<String, Any>> ?: emptyList()
+
+        val presentDays = records.count { it["isPresent"] == true }
+        val absenceDays = records.count { it["isPresent"] == false }
+
+        return presentDays to absenceDays
+    }
+
     private suspend fun calculateCoachSalary(employee: Employee, allTrainees: List<Trainee>, month: String, year: Int) {
         try {
+            // 🔵 Special salary rule for المدينة الرياضية
+            if (employee.branch == "المدينة الرياضية") {
+
+                val baseSalary = employee.salary ?: 0.0
+                val totalSessions = 8
+
+                // Count present / absent sessions from monthly attendance
+                val (presentSessions, absentSessions) =
+                    getCoachMonthlyAttendance(employee.id, month)
+
+                val sessionValue =
+                    if (totalSessions > 0) baseSalary / totalSessions else 0.0
+
+                val totalPayments = presentSessions * sessionValue
+                val finalSalary = totalPayments
+
+                val salary = Salary(
+                    employeeId = employee.id,
+                    employeeName = employee.name,
+                    role = employee.role,
+                    branch = employee.branch,
+                    month = month,
+                    year = year,
+                    baseSalary = baseSalary,
+                    totalTrainees = 0,
+                    traineeDetails = emptyList(),
+                    totalPayments = totalPayments,
+                    absenceDays = absentSessions,
+                    totalWorkingDays = totalSessions,
+                    absencePercentage = 0.0,
+                    deductionAmount = 0.0,
+                    deductionDetails = emptyList(),
+                    finalSalary = finalSalary,
+                    calculatedAt = Timestamp.now()
+                )
+
+                val existingSalary = db.collection(SALARIES_COLLECTION)
+                    .whereEqualTo("employeeId", employee.id)
+                    .whereEqualTo("month", month)
+                    .get()
+                    .await()
+
+                if (existingSalary.isEmpty) {
+                    db.collection(SALARIES_COLLECTION).add(salary).await()
+                } else {
+                    val docId = existingSalary.documents.first().id
+                    db.collection(SALARIES_COLLECTION)
+                        .document(docId)
+                        .set(salary.copy(id = docId))
+                        .await()
+                }
+
+                Log.d(TAG, "مدينة الرياضية salary calculated for ${employee.name}: $finalSalary")
+                return
+            }
             Log.d(TAG, "Calculating COACH salary for ${employee.name}")
-            
+
             // Get employee's trainees - check both coachId and coachName for better matching
             val employeeTrainees = allTrainees.filter { trainee ->
-                (trainee.coachId == employee.id || trainee.coachName == employee.name) && 
+                (trainee.coachId == employee.id || trainee.coachName == employee.name) &&
                 trainee.status in listOf("active", "academy", "team", "academy and Preparatonal")
             }
             Log.d(TAG, "${employee.name} has ${employeeTrainees.size} active trainees")
-            
+
             // Log trainee details for debugging
             employeeTrainees.forEach { trainee ->
                 Log.d(TAG, "Trainee: ${trainee.name}, CoachID: ${trainee.coachId}, CoachName: ${trainee.coachName}, Payment: ${trainee.paymentAmount}")
             }
-            
+
             // Calculate total payments from trainees using branch-specific commission rates
             val totalPayments = employeeTrainees.sumOf { trainee ->
                 calculateCommission(employee.branch, trainee.paymentAmount)
             }
             Log.d(TAG, "${employee.name} total trainee fees: ${employeeTrainees.sumOf { it.paymentAmount }}, coach payment (${employee.branch}): $totalPayments")
-            
+
             // No fixed base salary - only trainee payments count
             val baseSalary = 0.0
             Log.d(TAG, "${employee.name} base salary: $baseSalary (only trainee payments count)")
-            
-            // Use actual working days from employee record, default to 30 if not set
-            val totalWorkingDays = if (employee.totalDays > 0) employee.totalDays else 30
-            val presentDays = employee.attendanceDays.values.count { it }
-            val absenceDays = if (employee.attendanceDays.isEmpty()) 0 else (totalWorkingDays - presentDays)
-            
+
+            // Get monthly attendance for coach
+            val (presentDays, absenceDays) =
+                getCoachMonthlyAttendance(employee.id, month)
+
+            val totalWorkingDays = presentDays + absenceDays
+
+            val absencePercentage =
+                if (totalWorkingDays > 0)
+                    (absenceDays.toDouble() / totalWorkingDays) * 100
+                else 0.0
+
             Log.d(TAG, "${employee.name} - Attendance Data Check:")
-            Log.d(TAG, "  Attendance Days Map: ${employee.attendanceDays}")
-            Log.d(TAG, "  Attendance Days Empty: ${employee.attendanceDays.isEmpty()}")
-            Log.d(TAG, "  Attendance Days Size: ${employee.attendanceDays.size}")
-            val absencePercentage = if (totalWorkingDays > 0) (absenceDays.toDouble() / totalWorkingDays.toDouble()) * 100 else 0.0
-            // Deduct from trainee payments instead of base salary
-            val absenceDeduction = (totalPayments * absencePercentage) / 100
-            
-            Log.d(TAG, "${employee.name} - Attendance Details:")
-            Log.d(TAG, "  Total Working Days: $totalWorkingDays")
             Log.d(TAG, "  Present Days: $presentDays")
             Log.d(TAG, "  Absence Days: $absenceDays")
+            Log.d(TAG, "  Total Working Days: $totalWorkingDays")
             Log.d(TAG, "  Absence Percentage: ${String.format("%.1f", absencePercentage)}%")
+            // Deduct from trainee payments instead of base salary
+            val absenceDeduction = (totalPayments * absencePercentage) / 100
+
+            Log.d(TAG, "${employee.name} - Attendance Details:")
             Log.d(TAG, "  Total Payments: $totalPayments")
             Log.d(TAG, "  Absence Deduction: $absenceDeduction")
-            
+
             // Create trainee details (show branch-specific commission for each trainee)
             val traineeDetails = employeeTrainees.map { trainee ->
                 TraineeDetail(
@@ -319,7 +396,7 @@ class SalaryManager {
                     paymentDate = Timestamp.now()
                 )
             }
-            
+
             // Create deduction details
             val deductionDetails = mutableListOf<DeductionDetail>()
             if (absenceDeduction > 0) {
@@ -335,20 +412,20 @@ class SalaryManager {
             } else {
                 Log.d(TAG, "${employee.name} - No absence deduction (amount: $absenceDeduction)")
             }
-            
+
             val totalDeduction = deductionDetails.sumOf { it.amount }
             // Final salary is trainee payments minus deductions (no base salary)
             val finalSalary = totalPayments - totalDeduction
-            
+
             Log.d(TAG, "${employee.name} - Final calculation: Base: $baseSalary, Deductions: $totalDeduction, Final: $finalSalary")
-            
+
             // Check if salary record exists for this month
             val existingSalary = db.collection(SALARIES_COLLECTION)
                 .whereEqualTo("employeeId", employee.id)
                 .whereEqualTo("month", month)
                 .get()
                 .await()
-            
+
             val salary = Salary(
                 employeeId = employee.id,
                 employeeName = employee.name,
@@ -368,7 +445,7 @@ class SalaryManager {
                 finalSalary = finalSalary,
                 calculatedAt = Timestamp.now()
             )
-            
+
             if (existingSalary.isEmpty) {
                 // Create new salary record
                 val docRef = db.collection(SALARIES_COLLECTION).add(salary).await()
@@ -379,12 +456,12 @@ class SalaryManager {
                 db.collection(SALARIES_COLLECTION).document(docId).set(salary.copy(id = docId)).await()
                 Log.d(TAG, "Updated salary record for ${employee.name} - Month: $month, DocID: $docId")
             }
-            
+
         } catch (e: Exception) {
             Log.e(TAG, "Error calculating coach salary for ${employee.name}: ${e.message}")
         }
     }
-    
+
     suspend fun getSalaryDetails(employeeId: String, month: String): Salary? {
         return try {
             val result = db.collection(SALARIES_COLLECTION)
@@ -392,7 +469,7 @@ class SalaryManager {
                 .whereEqualTo("month", month)
                 .get()
                 .await()
-            
+
             if (!result.isEmpty) {
                 val salary = result.documents[0].toObject(Salary::class.java)
                 salary?.copy(id = result.documents[0].id)
@@ -404,60 +481,60 @@ class SalaryManager {
             null
         }
     }
-    
+
     suspend fun generateMonthlyReport(month: String): List<Salary> {
         return try {
             val result = db.collection(SALARIES_COLLECTION)
                 .whereEqualTo("month", month)
                 .get()
                 .await()
-            
+
             val salaries = result.documents.mapNotNull { doc ->
                 doc.toObject(Salary::class.java)?.copy(id = doc.id)
             }
-            
+
             Log.d(TAG, "Generated monthly report for $month: ${salaries.size} salary records")
             salaries.forEach { salary ->
                 Log.d(TAG, "Salary: ${salary.employeeName}, Trainees: ${salary.totalTrainees}, Final: ${salary.finalSalary}")
             }
-            
+
             salaries
         } catch (e: Exception) {
             Log.e(TAG, "Error generating monthly report: ${e.message}")
             emptyList()
         }
     }
-    
+
     suspend fun getAllSalaries(): List<Salary> {
         return try {
             val result = db.collection(SALARIES_COLLECTION)
                 .orderBy("month", com.google.firebase.firestore.Query.Direction.DESCENDING)
                 .get()
                 .await()
-            
+
             val salaries = result.documents.mapNotNull { doc ->
                 doc.toObject(Salary::class.java)?.copy(id = doc.id)
             }
-            
+
             // Sort in memory: month desc, then employeeName asc
             val sorted = salaries.sortedWith(compareByDescending<Salary> { parseMonth(it.month) }.thenBy { it.employeeName })
-            
+
             Log.d(TAG, "Loaded all salaries: ${sorted.size} total records")
             sorted.forEach { salary ->
                 Log.d(TAG, "Salary: ${salary.employeeName} - ${salary.month}, Final: ${salary.finalSalary}")
             }
-            
+
             sorted
         } catch (e: Exception) {
             Log.e(TAG, "Error loading all salaries: ${e.message}")
             emptyList()
         }
     }
-    
+
     private fun parseMonth(monthLabel: String): Long {
         return try { monthFormat.parse(monthLabel)?.time ?: 0L } catch (_: Exception) { 0L }
     }
-    
+
     /**
      * Calculate commission amount based on branch and trainee fee
      */
@@ -469,7 +546,7 @@ class SalaryManager {
             else -> traineeFee * TOKEELAT_COMMISSION_RATE // Default to 40%
         }
     }
-    
+
     suspend fun performMonthlyRolloverIfNeeded(): Boolean {
         return try {
             val monthKey = serverMonthKey()
@@ -497,7 +574,7 @@ class SalaryManager {
             false
         }
     }
-    
+
     suspend fun getAvailableMonths(): List<String> {
         return try {
             val result = db.collection(SALARIES_COLLECTION)
@@ -521,12 +598,12 @@ class SalaryManager {
             emptyList()
         }
     }
-    
+
     // Debug function to check database state
     suspend fun debugDatabaseState() {
         try {
             Log.d(TAG, "=== DEBUG DATABASE STATE ===")
-            
+
             // Check employees
             val employees = db.collection("employees").get().await()
             Log.d(TAG, "Total employees in DB: ${employees.size()}")
@@ -534,7 +611,7 @@ class SalaryManager {
                 val employee = doc.toObject(Employee::class.java)
                 Log.d(TAG, "Employee: ${employee?.name}, ID: ${doc.id}, Role: ${employee?.role}, Status: ${employee?.status}")
             }
-            
+
             // Check trainees
             val trainees = db.collection("trainees").get().await()
             Log.d(TAG, "Total trainees in DB: ${trainees.size()}")
@@ -542,7 +619,7 @@ class SalaryManager {
                 val trainee = doc.toObject(Trainee::class.java)
                 Log.d(TAG, "Trainee: ${trainee?.name}, CoachID: ${trainee?.coachId}, CoachName: ${trainee?.coachName}, Status: ${trainee?.status}")
             }
-            
+
             // Check salaries
             val salaries = db.collection(SALARIES_COLLECTION).get().await()
             Log.d(TAG, "Total salaries in DB: ${salaries.size()}")
@@ -550,7 +627,7 @@ class SalaryManager {
                 val salary = doc.toObject(Salary::class.java)
                 Log.d(TAG, "Salary: ${salary?.employeeName}, Month: ${salary?.month}, Final: ${salary?.finalSalary}, ID: ${doc.id}")
             }
-            
+
             Log.d(TAG, "=== END DEBUG ===")
         } catch (e: Exception) {
             Log.e(TAG, "Error in debugDatabaseState: ${e.message}")
@@ -566,5 +643,5 @@ class SalaryManager {
         } catch (_: Exception) {}
     }
 
-    // Production code only beyond this point (test helpers removed)
+// Production code only beyond this point (test helpers removed)
 }
