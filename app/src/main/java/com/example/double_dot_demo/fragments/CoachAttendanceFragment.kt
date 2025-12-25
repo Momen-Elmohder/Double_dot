@@ -130,9 +130,13 @@ class CoachAttendanceFragment : Fragment() {
                         // 2️⃣ Save note
                         saveCoachAttendanceNote(coach, isPresent, note)
 
-                        // 3️⃣ 🔥 Recalculate salary immediately
-                        lifecycleScope.launch {
-                            SalaryManager().recalculateSalaryForCoach(coach.id)
+                        // 3️⃣ Recalculate salary ONLY if live mode is enabled
+                        isLiveSalaryEnabled { isLive ->
+                            if (isLive) {
+                                lifecycleScope.launch {
+                                    SalaryManager().recalculateSalaryForCoach(coach.id)
+                                }
+                            }
                         }
                     },
                     onUndoAttendance = { coach ->
@@ -348,6 +352,20 @@ class CoachAttendanceFragment : Fragment() {
                 android.widget.Toast.makeText(context, "No attendance entries to undo for ${coach.name}", android.widget.Toast.LENGTH_SHORT).show()
             }
         } catch (_: Exception) {}
+    }
+
+    private fun isLiveSalaryEnabled(onResult: (Boolean) -> Unit) {
+        FirebaseFirestore.getInstance()
+            .collection("settings")
+            .document("payroll")
+            .get()
+            .addOnSuccessListener { doc ->
+                val mode = doc.getString("salaryMode") ?: "monthly"
+                onResult(mode == "live")
+            }
+            .addOnFailureListener {
+                onResult(false)
+            }
     }
 
     override fun onDestroyView() {

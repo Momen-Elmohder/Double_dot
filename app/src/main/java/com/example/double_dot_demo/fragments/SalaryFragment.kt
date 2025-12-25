@@ -22,6 +22,7 @@ import kotlinx.coroutines.launch
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.Query
+import kotlinx.coroutines.tasks.await
 import com.google.android.material.textfield.TextInputEditText
 
 class SalaryFragment : Fragment() {
@@ -61,12 +62,13 @@ class SalaryFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        
+
         try {
             initializeViews(view)
             setupRecyclerView()
             salaryManager = SalaryManager()
-            
+            observeSalaryMode()
+
             lifecycleScope.launch {
                 try {
                     // Check if migration is needed and run it
@@ -79,19 +81,19 @@ class SalaryFragment : Fragment() {
                             showToast("Salary data updated successfully")
                         }
                     }
-                    
+
                     val rolled = salaryManager.performMonthlyRolloverIfNeeded()
                     android.util.Log.d("SalaryFragment", "Monthly rollover executed: $rolled")
                 } catch (e: Exception) {
                     android.util.Log.e("SalaryFragment", "Error in initialization: ${e.message}")
                 }
             }
-            
+
             setupSalariesListener()
             loadAllSalaries()
             loadMonths()
             setupExport()
-            
+
         } catch (e: Exception) {
             android.util.Log.e("SalaryFragment", "Error in onViewCreated: ${e.message}")
             showToast("Error loading salary page: ${e.message}")
@@ -383,4 +385,26 @@ class SalaryFragment : Fragment() {
     }
 
     companion object { fun newInstance(): SalaryFragment = SalaryFragment() }
+
+    private fun observeSalaryMode() {
+        firestore.collection("settings")
+            .document("payroll")
+            .addSnapshotListener { snap, err ->
+                if (err != null || snap == null || !snap.exists()) return@addSnapshotListener
+                val mode = snap.getString("salaryMode") ?: "monthly"
+                if (mode == "live") {
+                    lifecycleScope.launch {
+                        try {
+                            val employees = firestore.collection("employees")
+                                .whereIn("role", listOf("coach", "admin"))
+                                .get()
+                                .await()
+                            for (doc in employees.documents) {
+                                salaryManager.recalculateSalaryForCoach(doc.id)
+                            }
+                        } catch (_: Exception) {}
+                    }
+                }
+            }
+    }
 }

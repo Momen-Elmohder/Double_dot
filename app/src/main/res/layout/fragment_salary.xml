@@ -30,6 +30,15 @@
             android:text="Export PDF" />
     </LinearLayout>
 
+    <!-- Salary Mode Toggle -->
+    <com.google.android.material.materialswitch.MaterialSwitch
+        android:id="@+id/switchSalaryMode"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Live salary calculation"
+        android:layout_marginBottom="12dp"
+        android:checked="false" />
+
     <!-- Controls: Month selector + Search -->
     <LinearLayout
         android:layout_width="match_parent"

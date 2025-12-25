@@ -288,18 +288,18 @@ class SalaryManager {
             // 🔵 Special salary rule for المدينة الرياضية
             if (employee.branch == "المدينة الرياضية") {
 
-                val baseSalary = employee.salary ?: 0.0
+                val baseSalary = employee.salary
                 val totalSessions = 8
 
-                // Count present / absent sessions from monthly attendance
-                val (presentSessions, absentSessions) =
-                    getCoachMonthlyAttendance(employee.id, month)
+                val presentSessions =
+                    employee.attendanceDays.values.count { it }.coerceAtMost(totalSessions)
+
+                val absentSessions = totalSessions - presentSessions
 
                 val sessionValue =
                     if (totalSessions > 0) baseSalary / totalSessions else 0.0
 
                 val totalPayments = presentSessions * sessionValue
-                val finalSalary = totalPayments
 
                 val salary = Salary(
                     employeeId = employee.id,
@@ -317,27 +317,26 @@ class SalaryManager {
                     absencePercentage = 0.0,
                     deductionAmount = 0.0,
                     deductionDetails = emptyList(),
-                    finalSalary = finalSalary,
+                    finalSalary = totalPayments,
                     calculatedAt = Timestamp.now()
                 )
 
-                val existingSalary = db.collection(SALARIES_COLLECTION)
+                val existingSalary = db.collection("salaries")
                     .whereEqualTo("employeeId", employee.id)
                     .whereEqualTo("month", month)
                     .get()
                     .await()
 
                 if (existingSalary.isEmpty) {
-                    db.collection(SALARIES_COLLECTION).add(salary).await()
+                    db.collection("salaries").add(salary).await()
                 } else {
                     val docId = existingSalary.documents.first().id
-                    db.collection(SALARIES_COLLECTION)
+                    db.collection("salaries")
                         .document(docId)
                         .set(salary.copy(id = docId))
                         .await()
                 }
 
-                Log.d(TAG, "مدينة الرياضية salary calculated for ${employee.name}: $finalSalary")
                 return
             }
             Log.d(TAG, "Calculating COACH salary for ${employee.name}")
@@ -540,10 +539,10 @@ class SalaryManager {
      */
     private fun calculateCommission(branch: String, traineeFee: Double): Double {
         return when (branch) {
-            "نادي التوكيلات" -> traineeFee * TOKEELAT_COMMISSION_RATE // 40%
-            "نادي اليخت" -> traineeFee * YACHT_COMMISSION_RATE // 30%
-            "المدينة الرياضية" -> MADINA_FIXED_AMOUNT // Fixed 200 pounds
-            else -> traineeFee * TOKEELAT_COMMISSION_RATE // Default to 40%
+            "نادي التوكيلات" -> traineeFee * TOKEELAT_COMMISSION_RATE
+            "نادي اليخت" -> traineeFee * YACHT_COMMISSION_RATE
+            "المدينة الرياضية" -> 0.0
+            else -> traineeFee * TOKEELAT_COMMISSION_RATE
         }
     }
 
