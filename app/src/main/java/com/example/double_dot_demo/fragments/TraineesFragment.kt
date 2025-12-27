@@ -460,20 +460,22 @@ class TraineesFragment : Fragment() {
                 val newFilteredTrainees = mutableListOf<Trainee>()
                 
                 trainees.forEach { trainee ->
-                    // Search filter
-                    val matchesSearch = searchQuery.isEmpty() || 
-                        trainee.name?.contains(searchQuery, ignoreCase = true) == true ||
-                        trainee.branch?.contains(searchQuery, ignoreCase = true) == true ||
-                        trainee.coachName?.contains(searchQuery, ignoreCase = true) == true ||
-                        trainee.status?.contains(searchQuery, ignoreCase = true) == true ||
-                        trainee.remainingSessions.toString().contains(searchQuery)
-                    
+                    // Improved search filter
+                    val q = searchQuery.lowercase()
+                    val matchesSearch =
+                        q.isEmpty() ||
+                        trainee.name.lowercase().contains(q) ||
+                        trainee.branch.lowercase().contains(q) ||
+                        trainee.coachName.lowercase().contains(q) ||
+                        trainee.status.lowercase().contains(q) ||
+                        (q.all { it.isDigit() } && trainee.remainingSessions == q.toIntOrNull())
+
                     // Branch filter
                     val matchesBranch = selectedBranch.isEmpty() || trainee.branch == selectedBranch
-                    
+
                     // Status filter
                     val matchesStatus = selectedStatus.isEmpty() || trainee.status == selectedStatus
-                    
+
                     if (matchesSearch && matchesBranch && matchesStatus) {
                         newFilteredTrainees.add(trainee)
                     }
