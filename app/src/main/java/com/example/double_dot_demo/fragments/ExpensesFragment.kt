@@ -14,7 +14,6 @@ import com.example.double_dot_demo.R
 import com.example.double_dot_demo.adapters.ExpensesAdapter
 import com.example.double_dot_demo.dialogs.AddExpenseDialog
 import com.example.double_dot_demo.dialogs.EditExpenseDialog
-import com.example.double_dot_demo.models.Employee
 import com.example.double_dot_demo.models.Expense
 import com.example.double_dot_demo.models.Trainee
 import com.google.android.material.floatingactionbutton.FloatingActionButton
@@ -26,6 +25,7 @@ import java.util.*
 import android.widget.Button
 import android.widget.AutoCompleteTextView
 import androidx.lifecycle.lifecycleScope
+import com.example.double_dot_demo.models.Employee
 import com.example.double_dot_demo.utils.ExpenseManager
 import com.example.double_dot_demo.utils.SalaryManager
 import kotlinx.coroutines.launch

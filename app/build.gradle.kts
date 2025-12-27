@@ -69,6 +69,7 @@ dependencies {
     implementation("androidx.recyclerview:recyclerview:1.3.2")
     implementation("com.airbnb.android:lottie:6.3.0")
     implementation("com.github.bumptech.glide:glide:4.16.0")
+    implementation(libs.androidx.room.ktx)
     annotationProcessor("com.github.bumptech.glide:compiler:4.16.0")
     
     // Unit tests

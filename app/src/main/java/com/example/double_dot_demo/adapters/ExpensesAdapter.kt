@@ -6,10 +6,10 @@ import android.view.ViewGroup
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 import com.example.double_dot_demo.R
-import com.example.double_dot_demo.models.Employee
 import com.example.double_dot_demo.models.Expense
 import com.example.double_dot_demo.models.Trainee
 import com.example.double_dot_demo.dialogs.ExpenseDetailsDialog
+import com.example.double_dot_demo.models.Employee
 import com.google.android.material.card.MaterialCardView
 import java.text.NumberFormat
 import java.util.*
@@ -211,13 +211,12 @@ class ExpensesAdapter(
             0.0
         }
     }
-    
+
     private fun calculateCommission(branch: String, traineeFee: Double): Double {
         return when (branch) {
             "نادي التوكيلات" -> traineeFee * 0.40 // 40%
             "نادي اليخت" -> traineeFee * 0.30 // 30%
-            "المدينة الرياضية" -> 200.0 // Fixed 200 pounds
-            else -> traineeFee * 0.40 // Default to 40%
+            else -> 0.0
         }
     }
 
