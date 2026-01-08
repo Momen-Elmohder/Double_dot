@@ -7,12 +7,12 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.Timestamp
 
 object RoleFixer {
-    
+
     fun fixUserRole(context: Context, email: String, newRole: String) {
         try {
             val auth = FirebaseAuth.getInstance()
             val firestore = FirebaseFirestore.getInstance()
-            
+
             // First find the user by email
             firestore.collection("users")
                 .whereEqualTo("email", email)
@@ -22,16 +22,16 @@ object RoleFixer {
                         Toast.makeText(context, "User not found with email: $email", Toast.LENGTH_LONG).show()
                         return@addOnSuccessListener
                     }
-                    
+
                     val document = documents.documents[0]
                     val userId = document.id
-                
+
                 // Update the role
                 val updateData = hashMapOf(
                     "role" to newRole,
                     "updatedAt" to Timestamp.now()
                 )
-                
+
                 firestore.collection("users")
                     .document(userId)
                     .update(updateData as Map<String, Any>)
@@ -49,11 +49,11 @@ object RoleFixer {
             Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show()
         }
     }
-    
+
     fun checkUserRole(context: Context, email: String) {
         try {
             val firestore = FirebaseFirestore.getInstance()
-            
+
             firestore.collection("users")
                 .whereEqualTo("email", email)
                 .get()
@@ -62,11 +62,11 @@ object RoleFixer {
                         Toast.makeText(context, "User not found with email: $email", Toast.LENGTH_LONG).show()
                         return@addOnSuccessListener
                     }
-                    
+
                     val document = documents.documents[0]
                     val role = document.getString("role") ?: "No role found"
                     val userId = document.id
-                    
+
                     Toast.makeText(context, "User: $email, Current Role: $role, User ID: $userId", Toast.LENGTH_LONG).show()
                 }
                 .addOnFailureListener { e ->
@@ -76,21 +76,21 @@ object RoleFixer {
             Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show()
         }
     }
-    
+
     fun createUserDocument(context: Context, email: String, role: String) {
         try {
             val auth = FirebaseAuth.getInstance()
             val firestore = FirebaseFirestore.getInstance()
-            
+
             // Get current user's UID
             val currentUser = auth.currentUser
             if (currentUser == null) {
                 Toast.makeText(context, "No authenticated user found", Toast.LENGTH_LONG).show()
                 return
             }
-            
+
             val userId = currentUser.uid
-            
+
             // Create user document
             val userData = hashMapOf(
                 "email" to email,
@@ -98,7 +98,7 @@ object RoleFixer {
                 "createdAt" to Timestamp.now(),
                 "lastLogin" to Timestamp.now()
             )
-            
+
             firestore.collection("users")
                 .document(userId)
                 .set(userData)
@@ -112,4 +112,13 @@ object RoleFixer {
             Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show()
         }
     }
-} 
+    fun normalize(role: String?): String {
+        return when (role?.trim()?.lowercase()) {
+            "head coach", "head_coach" -> "head_coach"
+            "admin" -> "admin"
+            "head admin", "head_admin" -> "head_admin"
+            "coach" -> "coach"
+            else -> "coach" // safe default
+        }
+    }
+}

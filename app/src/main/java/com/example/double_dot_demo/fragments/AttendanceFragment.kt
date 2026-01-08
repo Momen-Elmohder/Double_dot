@@ -290,20 +290,10 @@ class AttendanceFragment : Fragment() {
 
                     android.util.Log.d("AttendanceFragment", "Total trainees after filtering: ${newTrainees.size}")
 
-                    // Only update if the data has actually changed significantly
-                    if (newTrainees.size != trainees.size ||
-                        !newTrainees.all { newTrainee ->
-                            trainees.any { existingTrainee ->
-                                existingTrainee.id == newTrainee.id &&
-                                existingTrainee.name == newTrainee.name &&
-                                existingTrainee.status == newTrainee.status
-                            }
-                        }) {
-                        trainees.clear()
-                        trainees.addAll(newTrainees)
-                        filterAndSortTrainees()
-                        updateStats()
-                    }
+                    trainees.clear()
+                    trainees.addAll(newTrainees)
+                    filterAndSortTrainees()
+                    updateStats()
                 }
             }
 
@@ -442,85 +432,34 @@ class AttendanceFragment : Fragment() {
         isPresent: Boolean,
         note: String
     ) {
-        try {
-            if (!isAdded || context == null) return
+        if (!isAdded) return
 
-            android.util.Log.d("AttendanceFragment", "updateAttendance called - Session: $sessionId, IsPresent: $isPresent")
-            android.util.Log.d("AttendanceFragment", "Original trainee sessions: ${trainee.attendanceSessions}")
-
-            // Find the trainee in both lists and update them
-            val traineeIndex = trainees.indexOfFirst { it.id == trainee.id }
-            val filteredIndex = filteredTrainees.indexOfFirst { it.id == trainee.id }
-
-            if (traineeIndex != -1) {
-                val localTrainee = trainees[traineeIndex]
-                val updatedAttendanceSessions = localTrainee.attendanceSessions.toMutableMap()
-                updatedAttendanceSessions[sessionId] = AttendanceRecord(
+        val updatedSessions = trainee.attendanceSessions.toMutableMap().apply {
+            put(
+                sessionId,
+                AttendanceRecord(
                     isPresent = isPresent,
                     note = note
                 )
-                // Update the local trainee object
-                localTrainee.attendanceSessions = updatedAttendanceSessions
-                android.util.Log.d("AttendanceFragment", "Updated local trainee sessions: ${localTrainee.attendanceSessions}")
-            }
-
-            if (filteredIndex != -1) {
-                val filteredTrainee = filteredTrainees[filteredIndex]
-                val updatedAttendanceSessions = filteredTrainee.attendanceSessions.toMutableMap()
-                updatedAttendanceSessions[sessionId] = AttendanceRecord(
-                    isPresent = isPresent,
-                    note = note
-                )
-                // Update the filtered trainee object
-                filteredTrainee.attendanceSessions = updatedAttendanceSessions
-
-                // Update the UI immediately
-                adapter.notifyItemChanged(filteredIndex)
-                android.util.Log.d("AttendanceFragment", "Updated UI for trainee: ${filteredTrainee.name}, Sessions: ${filteredTrainee.attendanceSessions}")
-            }
-
-            // Then update Firestore in background
-            val firestoreSessions = trainee.attendanceSessions.toMutableMap().apply {
-                put(
-                    sessionId,
-                    AttendanceRecord(
-                        isPresent = isPresent,
-                        note = note
-                    )
-                )
-            }
-
-            android.util.Log.d("AttendanceFragment", "Firestore sessions to update: $firestoreSessions")
-            // Prepare update map and mark as completed if all sessions done
-            val totalCompleted = firestoreSessions.size
-            val shouldComplete = trainee.totalSessions > 0 && totalCompleted >= trainee.totalSessions
-            val remaining = (trainee.totalSessions - totalCompleted).coerceAtLeast(0)
-
-            val updateData = hashMapOf<String, Any>(
-                "attendanceSessions" to firestoreSessions
-            ).apply {
-                put("remainingSessions", remaining)
-                if (shouldComplete) put("status", "completed")
-            }
-
-            if (shouldComplete) {
-                android.util.Log.d("AttendanceFragment", "Trainee ${trainee.name} completed all sessions. Marking status as 'completed'.")
-            }
-
-            db.collection("trainees").document(trainee.id)
-                .update(updateData as Map<String, Any>)
-                .addOnSuccessListener {
-                    android.util.Log.d("AttendanceFragment", "Firestore updated successfully")
-                }
-                .addOnFailureListener { e ->
-                    android.util.Log.e("AttendanceFragment", "Error updating attendance: ${e.message}")
-                    showToast("Failed to update attendance")
-                    // The Firestore listener will handle reverting the change
-                }
-
-        } catch (e: Exception) {
-            android.util.Log.e("AttendanceFragment", "Error updating attendance: ${e.message}")
+            )
         }
+
+        val totalCompleted = updatedSessions.size
+        val shouldComplete =
+            trainee.totalSessions > 0 && totalCompleted >= trainee.totalSessions
+        val remaining =
+            (trainee.totalSessions - totalCompleted).coerceAtLeast(0)
+
+        val updateData = hashMapOf<String, Any>(
+            "attendanceSessions" to updatedSessions,
+            "remainingSessions" to remaining
+        ).apply {
+            if (shouldComplete) put("status", "completed")
+        }
+
+        db.collection("trainees")
+            .document(trainee.id)
+            .update(updateData)
     }
 
 

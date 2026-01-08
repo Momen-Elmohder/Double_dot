@@ -5,12 +5,17 @@ import android.view.View
 enum class Role(val key: String) {
     HEAD_COACH("head_coach"),
     COACH("coach"),
+
+    HEAD_ADMIN("head_admin"),
     ADMIN("admin");
+
+
 
     companion object {
         fun from(value: String?): Role {
             return when (value?.lowercase()?.replace(" ", "_")) {
                 "head_coach" -> HEAD_COACH
+                "head_admin" -> HEAD_ADMIN
                 "coach" -> COACH
                 "admin" -> ADMIN
                 else -> COACH
@@ -22,18 +27,19 @@ enum class Role(val key: String) {
 object Permissions {
     // Capability flags per role
     private val canViewExpenses = setOf(Role.HEAD_COACH)
-    private val canEditExpenses = setOf(Role.HEAD_COACH)
+    private val canEditExpenses = setOf(Role.HEAD_COACH, Role.HEAD_ADMIN)
 
-    private val canViewSalaries = setOf(Role.HEAD_COACH, Role.ADMIN)
-    private val canEditSalaries = setOf(Role.HEAD_COACH, Role.ADMIN)
 
-    private val canViewEmployees = setOf(Role.HEAD_COACH, Role.ADMIN)
-    private val canEditEmployees = setOf(Role.HEAD_COACH, Role.ADMIN)
-    private val canViewEmployeeAttendance = setOf(Role.HEAD_COACH, Role.ADMIN)
+    private val canViewSalaries = setOf(Role.HEAD_COACH, Role.ADMIN, Role.HEAD_ADMIN)
+    private val canEditSalaries = setOf(Role.HEAD_COACH, Role.ADMIN, Role.HEAD_ADMIN)
 
-    private val canViewWaitingList = setOf(Role.HEAD_COACH, Role.ADMIN)
+    private val canViewEmployees = setOf(Role.HEAD_COACH, Role.ADMIN, Role.HEAD_ADMIN)
+    private val canEditEmployees = setOf(Role.HEAD_COACH, Role.ADMIN, Role.HEAD_ADMIN)
+    private val canViewEmployeeAttendance = setOf(Role.HEAD_COACH, Role.ADMIN, Role.HEAD_ADMIN)
 
-    private val canViewTraineeDetailsFull = setOf(Role.HEAD_COACH, Role.ADMIN)
+    private val canViewWaitingList = setOf(Role.HEAD_COACH, Role.ADMIN, Role.HEAD_ADMIN)
+
+    private val canViewTraineeDetailsFull = setOf(Role.HEAD_COACH, Role.ADMIN, Role.HEAD_ADMIN)
 
     fun canAccessExpenses(role: Role) = role in canViewExpenses
     fun canEditExpenses(role: Role) = role in canEditExpenses

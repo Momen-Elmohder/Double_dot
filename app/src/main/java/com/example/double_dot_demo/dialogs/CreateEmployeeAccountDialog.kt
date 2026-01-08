@@ -70,8 +70,9 @@ class CreateEmployeeAccountDialog(
 
     private fun setupRoleDropdown() {
         val availableRoles = when (currentUserRole) {
-            "head_coach", "head coach" -> listOf("Coach", "Admin")
-            "admin" -> listOf("Coach")
+            "head_coach" -> listOf("Head Admin", "Admin", "Coach")
+            "head_admin" -> listOf("Head Admin", "Admin", "Coach")
+            "admin" -> listOf("Admin", "Coach")
             else -> listOf("Coach")
         }
         val adapter = ArrayAdapter(context, android.R.layout.simple_dropdown_item_1line, availableRoles)
@@ -151,8 +152,9 @@ class CreateEmployeeAccountDialog(
             else binding.etTotalDays.text.toString().trim().toIntOrNull() ?: 0
 
         val role = when (selectedRole.lowercase()) {
-            "coach" -> "coach"
+            "head admin" -> "head_admin"
             "admin" -> "admin"
+            "coach" -> "coach"
             else -> "coach"
         }
 
@@ -207,7 +209,6 @@ class CreateEmployeeAccountDialog(
                             .setDisplayName(name)
                             .build()
                         newUser.updateProfile(profileUpdates).addOnCompleteListener {
-                            auth.signOut()
                             binding.btnCreateAccount.isEnabled = true
                             binding.btnCreateAccount.text = "Create Account"
                             Toast.makeText(context, "Employee account created successfully!", Toast.LENGTH_LONG).show()

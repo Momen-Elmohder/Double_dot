@@ -95,22 +95,50 @@ class EmployeesFragment : Fragment() {
         try {
             firestore = FirebaseFirestore.getInstance()
             auth = FirebaseAuth.getInstance()
-            
-            // Get current user role from arguments
-            currentUserRole = arguments?.getString("user_role") ?: "unknown"
-            android.util.Log.d("EmployeesFragment", "Current user role: $currentUserRole")
-            
-            // Check if user has permission to access employees
-            if (currentUserRole == "coach") {
-                showAccessDeniedMessage()
-                return
+
+            val uid = FirebaseAuth.getInstance().currentUser!!.uid
+
+            // STEP 2 — Read role from arguments first (passed from Dashboard)
+            arguments?.getString("user_role")?.let { argRole ->
+                currentUserRole = argRole
             }
-            
-            setupRecyclerView()
-            setupAddButton()
-            setupRoleBasedUI()
-            setupSearchAndSort()
-            loadEmployees()
+
+            FirebaseFirestore.getInstance()
+                .collection("employees")
+                .document(uid)
+                .get()
+                .addOnSuccessListener { doc ->
+                    // Firestore role is fallback only if argument role is missing
+                    if (currentUserRole.isBlank()) {
+                        currentUserRole = doc.getString("role") ?: "coach"
+                    }
+
+                    android.util.Log.d(
+                        "EmployeesFragment",
+                        "Role loaded from Firestore = $currentUserRole"
+                    )
+
+                    val allowedRoles = setOf(
+                        "head_coach",
+                        "admin",
+                        "head_admin"
+                    )
+
+                    if (currentUserRole !in allowedRoles) {
+                        showAccessDeniedMessage()
+                        return@addOnSuccessListener
+                    }
+
+                    setupRecyclerView()
+                    setupAddButton()
+                    setupRoleBasedUI()
+                    setupSearchAndSort()
+                    loadEmployees()
+                }
+                .addOnFailureListener {
+                    currentUserRole = "coach"
+                    showAccessDeniedMessage()
+                }
         } catch (e: Exception) {
             android.util.Log.e("EmployeesFragment", "Error in onViewCreated: ${e.message}")
             if (isAdded) {
@@ -187,6 +215,8 @@ class EmployeesFragment : Fragment() {
         // Hide add button for coaches
         if (currentUserRole == "coach") {
             binding.btnAddEmployee.visibility = View.GONE
+        } else {
+            binding.btnAddEmployee.visibility = View.VISIBLE
         }
     }
 
@@ -272,9 +302,8 @@ class EmployeesFragment : Fragment() {
             val dialog = CreateEmployeeAccountDialog(requireContext(), currentUserRole)
             activeCreateDialog = dialog
             dialog.setOnPickPhoneClickListener { launchContactPicker() }
-            dialog.setOnAccountCreatedListener { employee ->
-                // Account created successfully, refresh the list
-                loadEmployees()
+            dialog.setOnAccountCreatedListener { _ ->
+                // Do nothing: Firestore snapshot listener will update UI automatically
             }
             dialog.show()
         }
@@ -336,15 +365,15 @@ class EmployeesFragment : Fragment() {
 
     private fun updateStats() {
         if (!isAdded) return
-        
+
         val total = filteredEmployees.size
         val coaches = filteredEmployees.count { it.role == "coach" }
         val headCoaches = filteredEmployees.count { it.role == "head_coach" }
         val admins = filteredEmployees.count { it.role == "admin" }
-        
+
         binding.tvTotalCount.text = total.toString()
         binding.tvCoachesCount.text = coaches.toString()
-        
+
         // Update stats text based on role
         when (currentUserRole) {
             "head_coach" -> {
@@ -378,10 +407,10 @@ class EmployeesFragment : Fragment() {
             contactPickerLauncher.launch(intent)
         } catch (_: Exception) {}
     }
-    
+
     private fun showEmployeeDetailsDialog(employee: Employee) {
         if (!isAdded) return
-        
+
         val dateFormat = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
         val message = """
             Name: ${employee.name}
@@ -391,7 +420,7 @@ class EmployeesFragment : Fragment() {
             Total Days: ${employee.totalDays}
             Status: ${employee.status}
         """.trimIndent()
-        
+
         androidx.appcompat.app.AlertDialog.Builder(requireContext())
             .setTitle("Employee Details")
             .setMessage(message)
@@ -403,7 +432,7 @@ class EmployeesFragment : Fragment() {
 
     private fun updateEmployee(employee: Employee) {
         if (!isAdded) return
-        
+
         // Show loading indicator
         val progressDialog = androidx.appcompat.app.AlertDialog.Builder(requireContext())
             .setView(R.layout.dialog_loading)
@@ -428,8 +457,7 @@ class EmployeesFragment : Fragment() {
                 if (isAdded) {
                     progressDialog.dismiss()
                     Toast.makeText(requireContext(), "Employee updated successfully", Toast.LENGTH_SHORT).show()
-                    // Refresh the list to show the updated employee
-                    loadEmployees()
+                    // Do nothing: Firestore snapshot listener will update UI automatically
                 }
             }
             .addOnFailureListener { e ->
@@ -442,9 +470,9 @@ class EmployeesFragment : Fragment() {
 
     private fun deleteEmployee(employee: Employee) {
         if (!isAdded) return
-        
+
         android.util.Log.d("EmployeesFragment", "Attempting to delete employee: ${employee.name} (ID: ${employee.id})")
-        
+
         androidx.appcompat.app.AlertDialog.Builder(requireContext())
             .setTitle("Delete Employee")
             .setMessage("Are you sure you want to delete ${employee.name}? This action cannot be undone.")
@@ -463,8 +491,7 @@ class EmployeesFragment : Fragment() {
                             progressDialog.dismiss()
                             android.util.Log.d("EmployeesFragment", "Employee deleted successfully from Firestore: ${employee.name}")
                             Toast.makeText(requireContext(), "Employee deleted successfully", Toast.LENGTH_SHORT).show()
-                            // Refresh the list to show the updated data
-                            loadEmployees()
+                            // Do nothing: Firestore snapshot listener will update UI automatically
                         }
                     }
                     .addOnFailureListener { e ->

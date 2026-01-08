@@ -45,8 +45,8 @@ class DashboardActivity : AppCompatActivity(), NavigationView.OnNavigationItemSe
     private lateinit var drawerLayout: DrawerLayout
     private lateinit var navigationView: NavigationView
     private var currentUserRole: String = ""
-    private val roleEnum: Role get() = Role.from(currentUserRole)
-    
+    private lateinit var roleEnum: Role
+
     // Navigation safety management
     private var currentFragment: Fragment? = null
     private var isNavigating = false
@@ -54,10 +54,10 @@ class DashboardActivity : AppCompatActivity(), NavigationView.OnNavigationItemSe
     private val navigationScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private var lastNavigationTime = 0L
     private val NAVIGATION_DEBOUNCE_TIME = 300L
-    
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        
+
         // Improved exception handler
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
             android.util.Log.e("DashboardActivity", "Uncaught exception in thread ${thread.name}: ${throwable.message}")
@@ -65,7 +65,7 @@ class DashboardActivity : AppCompatActivity(), NavigationView.OnNavigationItemSe
                 Toast.makeText(this, "App error occurred. Please restart.", Toast.LENGTH_LONG).show()
             }
         }
-        
+
         try {
             // Force light mode regardless of system setting
             AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
@@ -77,7 +77,11 @@ class DashboardActivity : AppCompatActivity(), NavigationView.OnNavigationItemSe
             auth = FirebaseAuth.getInstance()
             if (auth.currentUser == null) { goToSignIn(); return }
             currentUserRole = intent.getStringExtra("user_role") ?: "coach"
-            
+
+            // STEP 1 — normalize role once
+            currentUserRole = RoleFixer.normalize(currentUserRole)
+            roleEnum = Role.from(currentUserRole)
+
             if (currentUserRole == "coach") {
                 setupUltraSimpleCoachView()
             } else {
