@@ -37,8 +37,10 @@ import com.google.firebase.auth.FirebaseAuth
 import android.widget.Toast
 import kotlinx.coroutines.*
 
+import com.example.double_dot_demo.dialogs.AddExpenseDialog
+
 class DashboardActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelectedListener {
-    
+
     private lateinit var auth: FirebaseAuth
     private lateinit var bottomNavigation: BottomNavigationView
     private lateinit var toolbar: MaterialToolbar
@@ -82,6 +84,9 @@ class DashboardActivity : AppCompatActivity(), NavigationView.OnNavigationItemSe
             currentUserRole = RoleFixer.normalize(currentUserRole)
             roleEnum = Role.from(currentUserRole)
 
+            // STEP 2 — Allow Head Admin / Head Coach to ADD expenses without opening Expenses page
+            setupQuickAddExpenseButton()
+
             if (currentUserRole == "coach") {
                 setupUltraSimpleCoachView()
             } else {
@@ -97,6 +102,28 @@ class DashboardActivity : AppCompatActivity(), NavigationView.OnNavigationItemSe
                 val simpleFragment = AttendanceFragment()
                 supportFragmentManager.beginTransaction().replace(R.id.fragmentContainer, simpleFragment).commit()
             } catch (_: Exception) { }
+        }
+
+    }
+    private fun setupQuickAddExpenseButton() {
+        val btnAddExpense = findViewById<View>(R.id.btnQuickAddExpense) ?: return
+
+        val canAddExpense =
+            roleEnum == Role.HEAD_ADMIN || roleEnum == Role.HEAD_COACH
+
+        if (canAddExpense) {
+            btnAddExpense.visibility = View.VISIBLE
+            btnAddExpense.setOnClickListener {
+                try {
+                    AddExpenseDialog
+                        .newInstance { }
+                        .show(supportFragmentManager, "QuickAddExpense")
+                } catch (e: Exception) {
+                    Toast.makeText(this, "Failed to open add expense", Toast.LENGTH_SHORT).show()
+                }
+            }
+        } else {
+            btnAddExpense.visibility = View.GONE
         }
     }
 
@@ -138,13 +165,13 @@ class DashboardActivity : AppCompatActivity(), NavigationView.OnNavigationItemSe
         } catch (_: Exception) {}
     }
 
-    
+
 
     private fun setupUltraSimpleCoachView() {
         try {
             // Setup navigation drawer for coaches (without expenses)
             setupCoachNavigationDrawer()
-            
+
             // Setup basic toolbar
             toolbar = findViewById(R.id.toolbar)
             if (toolbar != null) {
@@ -152,11 +179,11 @@ class DashboardActivity : AppCompatActivity(), NavigationView.OnNavigationItemSe
                 supportActionBar?.title = "Double Dot Academy"
                 // Enable navigation icon for coaches
                 supportActionBar?.setDisplayHomeAsUpEnabled(true)
-                
+
                 // Set up navigation icon click listener with debouncing
                 toolbar.setNavigationOnClickListener {
                     if (NavigationUtils.isNavigationInProgress()) return@setNavigationOnClickListener
-                    
+
                     try {
                         drawerLayout.openDrawer(GravityCompat.START)
                     } catch (e: Exception) {
@@ -164,23 +191,23 @@ class DashboardActivity : AppCompatActivity(), NavigationView.OnNavigationItemSe
                     }
                 }
             }
-            
+
             // Setup bottom navigation with calendar and employees
             setupCoachBottomNavigation()
-            
+
             // Load trainees fragment directly
             loadFragment(TraineesFragment.newInstance().apply {
                 arguments = Bundle().apply {
                     putString("user_role", currentUserRole)
                 }
             })
-            
+
         } catch (e: Exception) {
             android.util.Log.e("DashboardActivity", "Error setting up coach view: ${e.message}")
             Toast.makeText(this, "Error setting up coach view: ${e.message}", Toast.LENGTH_LONG).show()
         }
     }
-    
+
     private fun setupSimpleToolbar() {
         try {
             toolbar = findViewById(R.id.toolbar)
@@ -195,18 +222,18 @@ class DashboardActivity : AppCompatActivity(), NavigationView.OnNavigationItemSe
             android.util.Log.e("DashboardActivity", "Error setting up simple toolbar: ${e.message}")
         }
     }
-    
+
     private fun setupToolbar() {
         try {
             toolbar = findViewById(R.id.toolbar)
             if (toolbar != null) {
                 setSupportActionBar(toolbar)
                 supportActionBar?.title = "Double Dot Academy"
-                
+
                 // Set up navigation icon click listener with debouncing
                 toolbar.setNavigationOnClickListener {
                     if (NavigationUtils.isNavigationInProgress()) return@setNavigationOnClickListener
-                    
+
                     try {
                         drawerLayout.openDrawer(GravityCompat.START)
                     } catch (e: Exception) {
@@ -220,22 +247,22 @@ class DashboardActivity : AppCompatActivity(), NavigationView.OnNavigationItemSe
             android.util.Log.e("DashboardActivity", "Error setting up toolbar: ${e.message}")
         }
     }
-    
+
     private fun setupNavigationDrawer() {
         try {
             drawerLayout = findViewById(R.id.drawerLayout)
             navigationView = findViewById(R.id.navigationView)
-            
+
             if (drawerLayout != null && navigationView != null) {
                 // Set navigation item selected listener
                 navigationView.setNavigationItemSelectedListener(this)
-                
+
                 // Update user info in header
                 updateUserInfo()
-                
+
                 // Set up role-based menu visibility
                 setupRoleBasedMenuVisibility()
-                
+
                 // TEMPORARY: Add role fix button for debugging
                 addRoleFixButton()
             } else {
@@ -245,22 +272,22 @@ class DashboardActivity : AppCompatActivity(), NavigationView.OnNavigationItemSe
             android.util.Log.e("DashboardActivity", "Error setting up navigation drawer: ${e.message}")
         }
     }
-    
+
     private fun setupRoleBasedMenuVisibility() {
         val menu = navigationView.menu
         val role = roleEnum
-        
+
         // Completed/Coach Attendance/Salary/Waiting List/Weekly Schedule
         menu.findItem(R.id.nav_completed)?.isVisible = Permissions.canAccessEmployees(role)
         menu.findItem(R.id.nav_coach_attendance)?.isVisible = Permissions.canAccessEmployeeAttendance(role)
         menu.findItem(R.id.nav_salary)?.isVisible = Permissions.canAccessSalaries(role)
         menu.findItem(R.id.nav_waiting_list)?.isVisible = Permissions.canAccessWaitingList(role)
         menu.findItem(R.id.nav_weekly_schedule)?.isVisible = Permissions.canAccessWaitingList(role)
-        
+
         // Expenses hidden for admin and coach
         menu.findItem(R.id.nav_expenses)?.isVisible = Permissions.canAccessExpenses(role)
     }
-    
+
     private fun addRoleFixButton() {
         // ENABLED FOR DEBUGGING - Long press toolbar to fix roles
         toolbar?.setOnLongClickListener {
@@ -272,7 +299,7 @@ class DashboardActivity : AppCompatActivity(), NavigationView.OnNavigationItemSe
             true
         }
     }
-    
+
     private fun showRoleFixDialog() {
         val editText = android.widget.EditText(this).apply {
             hint = "Enter email"
@@ -281,7 +308,7 @@ class DashboardActivity : AppCompatActivity(), NavigationView.OnNavigationItemSe
                 android.view.ViewGroup.LayoutParams.WRAP_CONTENT
             )
         }
-        
+
         val dialog = androidx.appcompat.app.AlertDialog.Builder(this)
             .setTitle("User Role Management")
             .setMessage("Enter the email of the user:")
@@ -305,10 +332,10 @@ class DashboardActivity : AppCompatActivity(), NavigationView.OnNavigationItemSe
                 }
             }
             .create()
-        
+
         dialog.show()
     }
-    
+
     private fun updateUserInfo() {
         try {
             if (navigationView != null) {
@@ -316,13 +343,13 @@ class DashboardActivity : AppCompatActivity(), NavigationView.OnNavigationItemSe
                 if (headerView != null) {
                     val userNameText = headerView.findViewById<TextView>(R.id.nav_header_name)
                     val userEmailText = headerView.findViewById<TextView>(R.id.nav_header_email)
-                    
+
                     if (userNameText != null && userEmailText != null) {
                         val currentUser = auth.currentUser
                         if (currentUser != null) {
                             val displayName = currentUser.displayName ?: "User"
                             val email = currentUser.email ?: "user@example.com"
-                            
+
                             userNameText.text = displayName
                             userEmailText.text = email
                         }
@@ -333,18 +360,18 @@ class DashboardActivity : AppCompatActivity(), NavigationView.OnNavigationItemSe
             android.util.Log.e("DashboardActivity", "Error updating user info: ${e.message}")
         }
     }
-    
+
     private fun setupBottomNavigation() {
         try {
             bottomNavigation = findViewById(R.id.bottomNavigation)
             val role = roleEnum
             // Employees tab visible only for head coach/admin
             bottomNavigation.menu.findItem(R.id.nav_employees)?.isVisible = Permissions.canAccessEmployees(role)
-            
+
             bottomNavigation.setOnItemSelectedListener { menuItem ->
                 // Prevent rapid navigation
                 if (isNavigating) return@setOnItemSelectedListener false
-                
+
                 try {
                     when (menuItem.itemId) {
                         R.id.nav_calendar -> { safeLoadFragment(AttendanceFragment()) }
@@ -352,9 +379,9 @@ class DashboardActivity : AppCompatActivity(), NavigationView.OnNavigationItemSe
                         R.id.nav_employees -> {
                             if (Permissions.canAccessEmployees(role)) {
                                 safeLoadFragment(EmployeesFragment.newInstance(currentUserRole))
-                            } else { 
+                            } else {
                                 showToast("You don't have permission to access employees")
-                                false 
+                                false
                             }
                         }
                         else -> false
@@ -369,19 +396,19 @@ class DashboardActivity : AppCompatActivity(), NavigationView.OnNavigationItemSe
             }
         } catch (_: Exception) {}
     }
-    
+
     private fun setupCoachNavigationDrawer() {
         try {
             drawerLayout = findViewById(R.id.drawerLayout)
             navigationView = findViewById(R.id.navigationView)
-            
+
             if (drawerLayout != null && navigationView != null) {
                 // Set navigation item selected listener
                 navigationView.setNavigationItemSelectedListener(this)
-                
+
                 // Update user info in header
                 updateUserInfo()
-                
+
                 // Set up role-based menu visibility for coaches
                 setupCoachMenuVisibility()
             } else {
@@ -391,14 +418,14 @@ class DashboardActivity : AppCompatActivity(), NavigationView.OnNavigationItemSe
             android.util.Log.e("DashboardActivity", "Error setting up coach navigation drawer: ${e.message}")
         }
     }
-    
+
     private fun setupCoachMenuVisibility() {
         try {
             val menu = navigationView.menu
-            
+
             // Hide expenses for coach role
             menu.findItem(R.id.nav_expenses)?.isVisible = false
-            
+
             // Show account and settings for coaches
             menu.findItem(R.id.nav_account)?.isVisible = true
             menu.findItem(R.id.nav_sign_out)?.isVisible = true
@@ -406,23 +433,23 @@ class DashboardActivity : AppCompatActivity(), NavigationView.OnNavigationItemSe
             android.util.Log.e("DashboardActivity", "Error setting up coach menu visibility: ${e.message}")
         }
     }
-    
+
     private fun setupCoachBottomNavigation() {
         try {
             bottomNavigation = findViewById(R.id.bottomNavigation)
-            
+
             // Show only calendar and trainees tabs for coaches (NO EMPLOYEES)
             bottomNavigation.menu.findItem(R.id.nav_calendar)?.isVisible = true
             bottomNavigation.menu.findItem(R.id.nav_trainees)?.isVisible = true
             bottomNavigation.menu.findItem(R.id.nav_employees)?.isVisible = false
-            
+
             // Start with trainees tab
             bottomNavigation.selectedItemId = R.id.nav_trainees
-            
+
             bottomNavigation.setOnItemSelectedListener { menuItem ->
                 // Prevent rapid navigation
                 if (isNavigating) return@setOnItemSelectedListener false
-                
+
                 try {
                     when (menuItem.itemId) {
                         R.id.nav_calendar -> {
@@ -454,18 +481,18 @@ class DashboardActivity : AppCompatActivity(), NavigationView.OnNavigationItemSe
             android.util.Log.e("DashboardActivity", "Error setting up coach bottom navigation: ${e.message}")
         }
     }
-    
+
     private fun setupUltraSimpleBottomNavigation() {
         try {
             bottomNavigation = findViewById(R.id.bottomNavigation)
-            
+
             // Hide employees and calendar tabs for coaches
             bottomNavigation.menu.findItem(R.id.nav_employees)?.isVisible = false
             bottomNavigation.menu.findItem(R.id.nav_calendar)?.isVisible = false
-            
+
             // Only show trainees tab
             bottomNavigation.selectedItemId = R.id.nav_trainees
-            
+
             bottomNavigation.setOnItemSelectedListener { menuItem ->
                 try {
                     when (menuItem.itemId) {
@@ -489,12 +516,12 @@ class DashboardActivity : AppCompatActivity(), NavigationView.OnNavigationItemSe
             android.util.Log.e("DashboardActivity", "Error setting up ultra simple bottom navigation: ${e.message}")
         }
     }
-    
+
     private fun setupSimpleBottomNavigation() {
         try {
             // Hide employees tab for coaches
             bottomNavigation.menu.findItem(R.id.nav_employees)?.isVisible = false
-            
+
             bottomNavigation.setOnItemSelectedListener { menuItem ->
                 try {
                     when (menuItem.itemId) {
@@ -522,7 +549,7 @@ class DashboardActivity : AppCompatActivity(), NavigationView.OnNavigationItemSe
             android.util.Log.e("DashboardActivity", "Error setting up simple bottom navigation: ${e.message}")
         }
     }
-    
+
     private fun setupFullBottomNavigation() {
         try {
             bottomNavigation.setOnItemSelectedListener { menuItem ->
@@ -558,7 +585,7 @@ class DashboardActivity : AppCompatActivity(), NavigationView.OnNavigationItemSe
             android.util.Log.e("DashboardActivity", "Error setting up full bottom navigation: ${e.message}")
         }
     }
-    
+
     private fun setupRoleBasedBottomNavigation() {
         try {
             // Hide employees tab for coaches
@@ -569,7 +596,7 @@ class DashboardActivity : AppCompatActivity(), NavigationView.OnNavigationItemSe
             android.util.Log.e("DashboardActivity", "Error setting up role-based bottom navigation: ${e.message}")
         }
     }
-    
+
     private fun loadDefaultFragment(userRole: String) {
         try {
             // For head coach, start with attendance
@@ -592,7 +619,7 @@ class DashboardActivity : AppCompatActivity(), NavigationView.OnNavigationItemSe
         } catch (e: Exception) {
             android.util.Log.e("DashboardActivity", "Error loading default fragment: ${e.message}")
             Toast.makeText(this, "Error loading default page: ${e.message}", Toast.LENGTH_LONG).show()
-            
+
             // Fallback: try to load trainees fragment
             try {
                 bottomNavigation.selectedItemId = R.id.nav_trainees
@@ -607,62 +634,62 @@ class DashboardActivity : AppCompatActivity(), NavigationView.OnNavigationItemSe
             }
         }
     }
-    
+
     private fun loadFragment(fragment: Fragment) {
         // Comprehensive navigation safety checks
         if (isFinishing || isDestroyed) return
         if (isNavigating) return
         if (supportFragmentManager.isDestroyed || supportFragmentManager.isStateSaved) return
-        
+
         val currentTime = System.currentTimeMillis()
         if (currentTime - lastNavigationTime < NAVIGATION_DEBOUNCE_TIME) {
             // Debounce rapid navigation attempts
             return
         }
-        
+
         try {
             isNavigating = true
             lastNavigationTime = currentTime
-            
+
             // Cancel any pending navigation operations
             navigationDebounceJob?.cancel()
-            
+
             // Execute pending transactions safely
             if (!supportFragmentManager.isDestroyed && !supportFragmentManager.isStateSaved) {
                 supportFragmentManager.executePendingTransactions()
             }
-            
+
             // Check if we're still in a valid state
             if (isFinishing || isDestroyed || supportFragmentManager.isDestroyed) {
                 isNavigating = false
                 return
             }
-            
+
             // Use optimized transaction with safety checks
             val transaction = supportFragmentManager.beginTransaction()
                 .setTransition(FragmentTransaction.TRANSIT_FRAGMENT_FADE)
                 .replace(R.id.fragmentContainer, fragment)
-            
+
             // Add to back stack only if not the first fragment
             if (currentFragment != null) {
                 transaction.addToBackStack(null)
             }
-            
+
             // Commit with state loss protection
             if (supportFragmentManager.isStateSaved) {
                 transaction.commitAllowingStateLoss()
             } else {
                 transaction.commit()
             }
-            
+
             currentFragment = fragment
-            
+
             // Reset navigation flag after a delay
             navigationDebounceJob = navigationScope.launch {
                 delay(NAVIGATION_DEBOUNCE_TIME)
                 isNavigating = false
             }
-            
+
         } catch (e: Exception) {
             android.util.Log.e("DashboardActivity", "Error loading fragment: ${e.message}")
             if (!isFinishing && !isDestroyed) {
@@ -675,12 +702,12 @@ class DashboardActivity : AppCompatActivity(), NavigationView.OnNavigationItemSe
     private fun safeLoadFragment(fragment: Fragment): Boolean {
         return NavigationUtils.safeLoadFragment(this, fragment, R.id.fragmentContainer, true)
     }
-    
+
     override fun onCreateOptionsMenu(menu: Menu?): Boolean {
         menuInflater.inflate(R.menu.dashboard_menu, menu)
         return true
     }
-    
+
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         return when (item.itemId) {
             R.id.action_sign_out -> {
@@ -690,7 +717,7 @@ class DashboardActivity : AppCompatActivity(), NavigationView.OnNavigationItemSe
             else -> super.onOptionsItemSelected(item)
         }
     }
-    
+
     override fun onNavigationItemSelected(item: MenuItem): Boolean {
         val role = roleEnum
         when (item.itemId) {
@@ -706,11 +733,11 @@ class DashboardActivity : AppCompatActivity(), NavigationView.OnNavigationItemSe
         drawerLayout.closeDrawer(GravityCompat.START)
         return true
     }
-    
+
     private fun showToast(message: String) {
         NavigationUtils.safeShowToast(this, message)
     }
-    
+
     override fun onBackPressed() {
         if (drawerLayout.isDrawerOpen(GravityCompat.START)) {
             drawerLayout.closeDrawer(GravityCompat.START)
@@ -718,16 +745,19 @@ class DashboardActivity : AppCompatActivity(), NavigationView.OnNavigationItemSe
             super.onBackPressed()
         }
     }
-    
+
     private fun signOut() {
         auth.signOut()
         goToSignIn()
     }
-    
+
     private fun goToSignIn() {
         val intent = Intent(this, MainActivity::class.java)
         intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
         startActivity(intent)
         finish()
     }
-} 
+}
+
+
+

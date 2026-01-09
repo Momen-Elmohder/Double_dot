@@ -243,121 +243,137 @@ class SalaryFragment : Fragment() {
             }
             val pdf = android.graphics.pdf.PdfDocument()
             val paint = android.graphics.Paint()
+            paint.textSize = 12f
             val titlePaint = android.graphics.Paint().apply { textSize = 18f; isFakeBoldText = true }
+            val headerPaint = android.graphics.Paint().apply { textSize = 13f; isFakeBoldText = true }
             val pageWidth = 595; val pageHeight = 842 // A4 at 72dpi in points
 
-            var y = 60
+            // Table column X positions (widened columns, compacted for better fit and no overlap)
+            val colEmployee = 40f
+            val colRole = 150f
+            val colBranch = 240f
+            val colBase = 320f
+            val colPresent = 380f
+            val colAbsent = 405f
+            val colDeduction = 445f
+            val colFinal = 505f
+
+            val rowHeight = 30
+            val textBaselineOffset = 20
+            val startY = 80
+            val headerY = 70
+            val footerSpace = 50
+
+            var y = startY
+            var page: android.graphics.pdf.PdfDocument.Page? = null
+            var canvas: android.graphics.Canvas? = null
+            var rowCount = 0
+            var totalFinal = 0.0
+
+            // --- Table border helpers ---
+            fun drawRowLine(canvas: android.graphics.Canvas, y: Int) {
+                canvas.drawLine(30f, y.toFloat(), 560f, y.toFloat(), paint)
+            }
+
+            fun drawVerticalLines(canvas: android.graphics.Canvas, top: Int, bottom: Int) {
+                val rightBorder = colFinal + 30f
+                val xs = listOf(
+                    30f,
+                    colEmployee - 10f,
+                    colRole - 10f,
+                    colBranch - 10f,
+                    colBase - 10f,
+                    colPresent - 10f,
+                    colAbsent - 10f,
+                    colDeduction - 10f,
+                    colFinal - 10f,
+                    rightBorder
+                )
+                xs.forEach { x ->
+                    canvas.drawLine(x, top.toFloat(), x, bottom.toFloat(), paint)
+                }
+            }
+            // --- End table border helpers ---
+
+            fun drawHeader(canvas: android.graphics.Canvas, y: Int) {
+                canvas.drawText("Employee", colEmployee, y.toFloat(), headerPaint)
+                canvas.drawText("Role", colRole, y.toFloat(), headerPaint)
+                canvas.drawText("Branch", colBranch, y.toFloat(), headerPaint)
+                canvas.drawText("Base", colBase, y.toFloat(), headerPaint)
+                canvas.drawText("P", colPresent, y.toFloat(), headerPaint)
+                canvas.drawText("A", colAbsent, y.toFloat(), headerPaint)
+                canvas.drawText("Deduction", colDeduction, y.toFloat(), headerPaint)
+                canvas.drawText("Final", colFinal, y.toFloat(), headerPaint)
+            }
+
             fun newPage(): android.graphics.pdf.PdfDocument.Page {
                 val pageInfo = android.graphics.pdf.PdfDocument.PageInfo.Builder(pageWidth, pageHeight, pdf.pages.size + 1).create()
                 val page = pdf.startPage(pageInfo)
-                y = 60
-                page.canvas.drawText("Double Dot Academy - Salaries", 40f, 30f, titlePaint)
-                page.canvas.drawText("Month: $month", 40f, 50f, paint)
+                val c = page.canvas
+                // Title and month
+                c.drawText("Double Dot Academy - Salaries", 40f, 30f, titlePaint)
+                c.drawText("Month: $month", 40f, 50f, paint)
+                drawHeader(c, headerY)
+                // Draw horizontal line below header
+                drawRowLine(c, headerY + 5)
                 return page
             }
 
-            var page = newPage()
-            var totalFinal = 0.0
-            salaries.forEach { s ->
-
-                if (y > pageHeight - 120) {
-                    pdf.finishPage(page)
-                    page = newPage()
-                }
-
-                // Employee header
-                page.canvas.drawText("Employee: ${s.employeeName}", 40f, y.toFloat(), titlePaint)
-                y += 22
-                page.canvas.drawText("Role: ${s.role}", 40f, y.toFloat(), paint)
-                y += 16
-                page.canvas.drawText(
-                    "Coach Type: ${s.coachType ?: "academy"}",
-                    40f,
-                    y.toFloat(),
-                    paint
-                )
-                y += 16
-                page.canvas.drawText("Final Salary: ${String.format("%.2f", s.finalSalary)}", 40f, y.toFloat(), paint)
-                y += 20
-
-                // Trainees
-                page.canvas.drawText("Trainees (${s.totalTrainees})", 40f, y.toFloat(), titlePaint)
-                y += 18
-                if (s.traineeDetails.isEmpty()) {
-                    page.canvas.drawText("No trainees", 60f, y.toFloat(), paint)
-                    y += 16
-                } else {
-                    s.traineeDetails.forEach {
-                        page.canvas.drawText(
-                            "• ${it.traineeName} — ${String.format("%.2f", it.monthlyFee)}",
-                            60f,
-                            y.toFloat(),
-                            paint
-                        )
-                        y += 16
-                    }
-                }
-
-                y += 10
-
-                // Attendance
-                page.canvas.drawText("Attendance", 40f, y.toFloat(), titlePaint)
-                y += 18
-                page.canvas.drawText("Working Days: ${s.totalWorkingDays}", 60f, y.toFloat(), paint)
-                y += 16
-                val attendedDays = s.totalWorkingDays - s.absenceDays
-                page.canvas.drawText(
-                    "Attended Days: $attendedDays",
-                    60f,
-                    y.toFloat(),
-                    paint
-                )
-                y += 16
-                page.canvas.drawText("Absence Days: ${s.absenceDays}", 60f, y.toFloat(), paint)
-                y += 16
-                page.canvas.drawText(
-                    "Absence Rate: ${String.format("%.1f", s.absencePercentage)}%",
-                    60f,
-                    y.toFloat(),
-                    paint
-                )
-                y += 20
-
-                // Deductions
-                page.canvas.drawText("Deductions", 40f, y.toFloat(), titlePaint)
-                y += 18
-                page.canvas.drawText(
-                    "Total Deduction: ${String.format("%.2f", s.deductionAmount)}",
-                    60f,
-                    y.toFloat(),
-                    paint
-                )
-                y += 16
-
-                // Attendance notes
-                page.canvas.drawText("Attendance Notes", 40f, y.toFloat(), titlePaint)
-                y += 18
-                if (s.deductionDetails.isEmpty()) {
-                    page.canvas.drawText("No attendance notes", 60f, y.toFloat(), paint)
-                    y += 16
-                } else {
-                    s.deductionDetails.forEach {
-                        page.canvas.drawText(
-                            "• ${it.description} (${String.format("%.2f", it.amount)})",
-                            60f,
-                            y.toFloat(),
-                            paint
-                        )
-                        y += 16
-                    }
-                }
-
-                y += 30
-                totalFinal += s.finalSalary
+            fun finishCurrentPage() {
+                page?.let { pdf.finishPage(it) }
             }
-            if (y > pageHeight - 40) { pdf.finishPage(page); page = newPage() }
-            page.canvas.drawText("Total: ${String.format("%.2f", totalFinal)}", 40f, (y + 20).toFloat(), titlePaint)
-            pdf.finishPage(page)
+
+            // Track table top for vertical borders
+            val tableTop = headerY - 10
+
+            page = newPage()
+            canvas = page!!.canvas
+            y = startY
+            rowCount = 0
+
+            for (s in salaries) {
+                // Check if we need a new page for next row (leave room for footer)
+                if (y > pageHeight - footerSpace) {
+                    // Draw vertical lines for previous page
+                    drawVerticalLines(canvas!!, tableTop, y)
+                    finishCurrentPage()
+                    page = newPage()
+                    canvas = page!!.canvas
+                    y = startY
+                }
+
+                val textY = y + textBaselineOffset
+
+                canvas!!.drawText(s.employeeName.take(14), colEmployee, textY.toFloat(), paint)
+                canvas!!.drawText(s.role.take(10), colRole, textY.toFloat(), paint)
+                canvas!!.drawText((s.branch ?: "").take(10), colBranch, textY.toFloat(), paint)
+                canvas!!.drawText(String.format("%.2f", s.baseSalary), colBase, textY.toFloat(), paint)
+
+                val presentDays = s.totalWorkingDays - s.absenceDays
+                canvas!!.drawText(presentDays.toString(), colPresent, textY.toFloat(), paint)
+                canvas!!.drawText(s.absenceDays.toString(), colAbsent, textY.toFloat(), paint)
+                canvas!!.drawText(String.format("%.2f", s.deductionAmount), colDeduction, textY.toFloat(), paint)
+                canvas!!.drawText(String.format("%.2f", s.finalSalary), colFinal, textY.toFloat(), paint)
+
+                // bottom border of the row
+                drawRowLine(canvas!!, y + rowHeight)
+
+                y += rowHeight
+                totalFinal += s.finalSalary
+                rowCount++
+            }
+
+            // Draw final horizontal line to close the table
+            drawRowLine(canvas!!, y)
+            drawVerticalLines(canvas!!, tableTop, y)
+
+            // Add spacing before TOTAL
+            y += 30
+
+            // Draw total below table, no vertical borders
+            canvas!!.drawText("Total:", colDeduction - 20f, y.toFloat(), titlePaint)
+            canvas!!.drawText(String.format("%.2f", totalFinal), colFinal - 10f, y.toFloat(), titlePaint)
+            finishCurrentPage()
 
             // Save to Downloads using MediaStore
             val fileName = "salaries_${month.replace(" ", "_")}.pdf"

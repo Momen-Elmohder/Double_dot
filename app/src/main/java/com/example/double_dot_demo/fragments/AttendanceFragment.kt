@@ -302,7 +302,7 @@ class AttendanceFragment : Fragment() {
         }
     }
 
-        private fun filterAndSortTrainees() {
+    private fun filterAndSortTrainees() {
         try {
             val searchQuery = searchInput.editText?.text.toString().lowercase()
             val sortBy = sortBySpinner.text.toString()

@@ -1,5 +1,6 @@
 package com.example.double_dot_demo.fragments
 
+import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
 import android.view.LayoutInflater
@@ -24,6 +25,7 @@ import java.text.SimpleDateFormat
 import java.util.*
 import android.widget.Button
 import android.widget.AutoCompleteTextView
+import androidx.annotation.RequiresApi
 import androidx.lifecycle.lifecycleScope
 import com.example.double_dot_demo.models.Employee
 import com.example.double_dot_demo.utils.ExpenseManager
@@ -188,162 +190,230 @@ class ExpensesFragment : Fragment() {
 
     private fun setupExportButton() {
         try {
-            btnExport?.setOnClickListener { exportAsPDF() }
+            btnExport?.setOnClickListener {
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                    exportAsPDF()
+                } else {
+                    android.widget.Toast.makeText(
+                        requireContext(),
+                        "PDF export is supported on Android 10 and above",
+                        android.widget.Toast.LENGTH_LONG
+                    ).show()
+                }
+            }
+
+            // Optional: hide button on unsupported versions
+            if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.Q) {
+                btnExport?.visibility = View.GONE
+            }
+
             android.util.Log.d("ExpensesFragment", "Export button setup completed")
         } catch (e: Exception) {
             android.util.Log.e("ExpensesFragment", "Error setting up export button: ${e.message}")
         }
     }
 
+    @RequiresApi(Build.VERSION_CODES.Q)
     private fun exportAsPDF() {
         try {
             val month = selectedMonth
-            val monthExpenses = expenses.filter { isExpenseInMonth(it, month) && it.type == "EXPENSE" }
-            val monthIncome = expenses.filter { isExpenseInMonth(it, month) && it.type == "INCOME" }
-            val totalExpenses = monthExpenses.sumOf { it.amount }
-            val totalIncome = monthIncome.sumOf { it.amount }
+
+            // Use UI logic for summary totals: aggregate via getBranchData()
+            var totalIncome = 0.0
+            var totalExpenses = 0.0
+            getBranches().forEach { branch ->
+                val data = getBranchData(branch)
+                totalIncome += data.totalIncome
+                totalExpenses += data.manualExpenses + data.autoSalaries
+            }
             val netAmount = totalIncome - totalExpenses
 
             val pdf = android.graphics.pdf.PdfDocument()
-            val paint = android.graphics.Paint()
-            val bold = android.graphics.Paint().apply { textSize = 16f; isFakeBoldText = true }
-            val titleBold = android.graphics.Paint().apply { textSize = 18f; isFakeBoldText = true }
-            val smallPaint = android.graphics.Paint().apply { textSize = 10f }
-            
-            var pageNumber = 1
-            var page = createNewPage(pdf, pageNumber, month, titleBold, paint)
-            var y = 80
 
-            fun draw(text: String, isBold: Boolean = false, isSmall: Boolean = false) {
-                val p = when {
-                    isBold -> bold
-                    isSmall -> smallPaint
-                    else -> paint
-                }
-                val size = when {
-                    isBold -> 16f
-                    isSmall -> 10f
-                    else -> 14f
-                }
-                p.textSize = size
-                page.canvas.drawText(text, 40f, y.toFloat(), p)
-                y += if (isSmall) 12 else if (isBold) 20 else 18
+            val paint = android.graphics.Paint().apply { textSize = 12f }
+            val bold = android.graphics.Paint().apply { textSize = 12f; isFakeBoldText = true }
+            val title = android.graphics.Paint().apply { textSize = 18f; isFakeBoldText = true }
+
+            // Table border and header/fill paints
+            val linePaint = android.graphics.Paint().apply {
+                style = android.graphics.Paint.Style.STROKE
+                strokeWidth = 1f
+            }
+            val headerBgPaint = android.graphics.Paint().apply {
+                style = android.graphics.Paint.Style.FILL
+                color = 0xFFEFEFEF.toInt()
+            }
+            val footerPaint = android.graphics.Paint().apply {
+                textSize = 10f
             }
 
-            fun checkNewPage() {
-                if (y > 800) {
+            val COL1 = 40
+            val COL2 = 200
+            val COL3 = 330
+            val COL4 = 460
+
+            fun row(canvas: android.graphics.Canvas, y: Int, p: android.graphics.Paint, c1: String, c2: String, c3: String = "", c4: String = "") {
+                canvas.drawText(c1, COL1.toFloat(), y.toFloat(), p)
+                canvas.drawText(c2, COL2.toFloat(), y.toFloat(), p)
+                if (c3.isNotEmpty()) canvas.drawText(c3, COL3.toFloat(), y.toFloat(), p)
+                if (c4.isNotEmpty()) canvas.drawText(c4, COL4.toFloat(), y.toFloat(), p)
+            }
+
+            fun headerRow(canvas: android.graphics.Canvas, y: Int, c1: String, c2: String, c3: String = "", c4: String = "") {
+                canvas.drawRect(30f, (y - 12).toFloat(), 565f, (y + 4).toFloat(), headerBgPaint)
+                row(canvas, y, bold, c1, c2, c3, c4)
+                canvas.drawLine(30f, (y + 6).toFloat(), 565f, (y + 6).toFloat(), linePaint)
+            }
+
+            fun borderedRow(canvas: android.graphics.Canvas, y: Int, c1: String, c2: String, c3: String = "", c4: String = "") {
+                row(canvas, y, paint, c1, c2, c3, c4)
+                canvas.drawLine(30f, (y + 6).toFloat(), 565f, (y + 6).toFloat(), linePaint)
+            }
+
+            fun drawFooter(canvas: android.graphics.Canvas, pageNumber: Int) {
+                canvas.drawLine(30f, 820f, 565f, 820f, linePaint)
+                canvas.drawText("Generated by Double Dot Academy", 40f, 835f, footerPaint)
+                canvas.drawText("Page $pageNumber", 500f, 835f, footerPaint)
+            }
+
+            fun newPage(pageNumber: Int): android.graphics.pdf.PdfDocument.Page {
+                val pageInfo = android.graphics.pdf.PdfDocument.PageInfo.Builder(595, 842, pageNumber).create()
+                val page = pdf.startPage(pageInfo)
+                page.canvas.drawText("Double Dot Academy – Financial Report", 40f, 30f, title)
+                page.canvas.drawText("Month: $month", 40f, 50f, paint)
+                drawFooter(page.canvas, pageNumber)
+                return page
+            }
+
+            var pageNumber = 1
+            var page = newPage(pageNumber)
+            var y = 90
+
+            // ===== SUMMARY TABLE =====
+            page.canvas.drawText("SUMMARY", COL1.toFloat(), y.toFloat(), bold)
+            y += 20
+            headerRow(page.canvas, y, "Type", "Amount")
+            y += 18
+            borderedRow(page.canvas, y, "Total Income", String.format("%.2f", totalIncome))
+            y += 18
+            borderedRow(page.canvas, y, "Total Expenses", String.format("%.2f", totalExpenses))
+            y += 18
+            borderedRow(page.canvas, y, "NET", String.format("%.2f", netAmount))
+            y += 30
+
+            // ===== BRANCH TABLE =====
+            page.canvas.drawText("BRANCH BREAKDOWN", COL1.toFloat(), y.toFloat(), bold)
+            y += 20
+            headerRow(page.canvas, y, "Branch", "Income", "Expenses", "Net")
+            y += 18
+            getBranches().forEach { branch ->
+                if (y > 760) {
                     pdf.finishPage(page)
                     pageNumber++
-                    page = createNewPage(pdf, pageNumber, month, titleBold, paint)
-                    y = 80
+                    page = newPage(pageNumber)
+                    y = 90
+                    headerRow(page.canvas, y, "Branch", "Income", "Expenses", "Net")
+                    y += 18
                 }
+                val data = getBranchData(branch)
+                borderedRow(
+                    page.canvas,
+                    y,
+                    branch,
+                    String.format("%.2f", data.totalIncome),
+                    String.format("%.2f", data.manualExpenses + data.autoSalaries),
+                    String.format("%.2f", data.totalAmount)
+                )
+                y += 18
             }
 
-            draw("Summary", true)
-            draw("Total Income: ${String.format("%.2f", totalIncome)}")
-            draw("Total Expenses: ${String.format("%.2f", totalExpenses)}")
-            draw("Net: ${String.format("%.2f", netAmount)}", true)
-            y += 10
+            // ===== MANUAL EXPENSES TABLE =====
+            y += 30
+            page.canvas.drawText("MANUAL EXPENSES", COL1.toFloat(), y.toFloat(), bold)
+            y += 20
+            headerRow(page.canvas, y, "Date", "Title", "Branch", "Amount")
+            y += 18
 
-            // Branch Details with detailed breakdown
-            draw("Branch Details", true)
-            val branches = getBranches()
-            branches.forEach { branch ->
-                checkNewPage()
-                draw("$branch", true)
-                
-                val branchData = getBranchData(branch)
-                draw("  Income: ${String.format("%.2f", branchData.totalIncome)}")
-                draw("  Manual Expenses: ${String.format("%.2f", branchData.manualExpenses)}")
-                draw("  Auto Salaries: ${String.format("%.2f", branchData.autoSalaries)}")
-                draw("  Net: ${String.format("%.2f", branchData.totalAmount)}", true)
-                
-                // Add detailed breakdown for each branch
-                val branchExpenses = expenses.filter { 
-                    isExpenseInMonth(it, month) && it.branch == branch 
+            val manualExpenses = expenses.filter {
+                isExpenseInMonth(it, month) &&
+                it.type == "EXPENSE" &&
+                !it.isAutoCalculated
+            }
+
+            manualExpenses.forEach { expense ->
+                if (y > 760) {
+                    pdf.finishPage(page)
+                    pageNumber++
+                    page = newPage(pageNumber)
+                    y = 90
+                    headerRow(page.canvas, y, "Date", "Title", "Branch", "Amount")
+                    y += 18
                 }
-                val branchTrainees = trainees.filter { it.branch == branch }
-                val branchCoaches = coaches.filter { it.branch == branch }
-                
-                // Income details
-                if (branchTrainees.isNotEmpty()) {
-                    checkNewPage()
-                    draw("  Income Details:", true)
-                    branchTrainees.forEach { trainee ->
-                        checkNewPage()
-                        draw("    ${trainee.name} - ${String.format("%.2f", trainee.paymentAmount)}", false, true)
-                    }
+
+                val dateStr = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+                    .format(expense.date.toDate())
+
+                borderedRow(
+                    page.canvas,
+                    y,
+                    dateStr,
+                    expense.title,
+                    expense.branch,
+                    String.format("%.2f", expense.amount)
+                )
+                y += 18
+            }
+
+            // ===== SALARY TABLE =====
+            y += 20
+            page.canvas.drawText("SALARIES", COL1.toFloat(), y.toFloat(), bold)
+            y += 20
+            headerRow(page.canvas, y, "Coach", "Present", "Absent", "Final Salary")
+            y += 18
+
+            coaches.forEach { coach ->
+                if (y > 760) {
+                    pdf.finishPage(page)
+                    pageNumber++
+                    page = newPage(pageNumber)
+                    y = 90
+                    headerRow(page.canvas, y, "Coach", "Present", "Absent", "Final Salary")
+                    y += 18
                 }
-                
-                // Manual expenses details
-                val manualExpenses = branchExpenses.filter { 
-                    it.type == "EXPENSE" && !it.isAutoCalculated 
-                }
-                if (manualExpenses.isNotEmpty()) {
-                    checkNewPage()
-                    draw("  Manual Expenses:", true)
-                    manualExpenses.forEach { expense ->
-                        checkNewPage()
-                        draw("    ${expense.title} - ${String.format("%.2f", expense.amount)}", false, true)
-                        if (expense.description.isNotEmpty()) {
-                            draw("      ${expense.description}", false, true)
-                        }
-                    }
-                }
-                
-                // Salary details
-                if (branchCoaches.isNotEmpty()) {
-                    checkNewPage()
-                    draw("  Salary Details:", true)
-                    branchCoaches.forEach { coach ->
-                        checkNewPage()
-                        val coachTrainees = trainees.filter { it.coachId == coach.id }
-                        val totalPayments = coachTrainees.sumOf { it.paymentAmount }
-                        val baseSalary = coachTrainees.sumOf { trainee ->
-                            calculateCommission(coach.branch, trainee.paymentAmount)
-                        }
-                        val (presentCount, absentCount) = calculateAttendanceStats(coach)
-                        val totalDays = presentCount + absentCount
-                        val absencePercent = if (totalDays > 0) {
-                            (absentCount.toDouble() / totalDays.toDouble()) * 100.0
-                        } else {
-                            0.0
-                        }
-                        val deduction = baseSalary * (absencePercent / 100.0)
-                        val finalSalary = baseSalary - deduction
-                        
-                        draw("    ${coach.name} - ${String.format("%.2f", finalSalary)}", false, true)
-                        draw("      Trainees: ${coachTrainees.size}, Base: ${String.format("%.2f", baseSalary)}", false, true)
-                        draw("      Attendance: $presentCount present, $absentCount absent", false, true)
-                    }
-                }
-                
-                y += 10
+
+                val (present, absent) = calculateAttendanceStats(coach)
+                val finalSalary = calculateCoachSalary(coach)
+
+                borderedRow(
+                    page.canvas,
+                    y,
+                    coach.name,
+                    present.toString(),
+                    absent.toString(),
+                    String.format("%.2f", finalSalary)
+                )
+                y += 18
             }
 
             pdf.finishPage(page)
-            val fileName = "expenses_report_${month.replace(" ", "_")}.pdf"
+
+            val fileName = "expenses_${month.replace(" ", "_")}.pdf"
             val values = android.content.ContentValues().apply {
                 put(MediaStore.Downloads.DISPLAY_NAME, fileName)
                 put(MediaStore.Downloads.MIME_TYPE, "application/pdf")
                 put(MediaStore.Downloads.RELATIVE_PATH, android.os.Environment.DIRECTORY_DOWNLOADS)
             }
+
             val resolver = requireContext().contentResolver
-            val uri = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
-                resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
-            } else {
-                // Fallback for older Android versions - save to app's internal storage
-                val file = java.io.File(requireContext().getExternalFilesDir(android.os.Environment.DIRECTORY_DOWNLOADS), fileName)
-                file.outputStream().use { out -> pdf.writeTo(out) }
-                null // We've already written the file, so return null to skip the resolver.insert
-            }
-            if (uri == null) { android.widget.Toast.makeText(context, "Save failed", android.widget.Toast.LENGTH_SHORT).show(); return }
-            resolver.openOutputStream(uri)?.use { out -> pdf.writeTo(out) }
+            val uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+            resolver.openOutputStream(uri!!)?.use { pdf.writeTo(it) }
             pdf.close()
-            android.widget.Toast.makeText(context, "Saved to Downloads/$fileName", android.widget.Toast.LENGTH_LONG).show()
+
+            android.widget.Toast.makeText(context, "PDF saved to Downloads", android.widget.Toast.LENGTH_LONG).show()
+
         } catch (e: Exception) {
-            android.util.Log.e("ExpensesFragment", "Error exporting PDF: ${e.message}")
-            android.widget.Toast.makeText(context, "Export failed: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
+            android.util.Log.e("ExpensesFragment", "PDF error: ${e.message}")
+            android.widget.Toast.makeText(context, "Export failed", android.widget.Toast.LENGTH_LONG).show()
         }
     }
     

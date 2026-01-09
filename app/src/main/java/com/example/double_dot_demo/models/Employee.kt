@@ -14,7 +14,7 @@ data class Employee(
     val totalDays: Int = 0,
     val remainingDays: Int = 0,
     val status: String = "active", // active, inactive
-    val attendanceDays: Map<String, Boolean> = emptyMap(), // day_1, day_2, etc. -> true (present) / false (absent)
+    val attendanceDays: Map<String, Boolean> = emptyMap(),
     val createdAt: Timestamp = Timestamp.now(),
     val updatedAt: Timestamp = Timestamp.now()
 )

@@ -160,6 +160,7 @@ class SalaryManager {
     }
 
     private suspend fun calculateEmployeeSalary(employee: Employee, allTrainees: List<Trainee>, month: String, year: Int = Calendar.getInstance().get(Calendar.YEAR)) {
+        Log.d(TAG, "DEBUG Calculating salary for ${employee.name} role=${employee.role} month=$month")
         try {
             Log.d(TAG, "Calculating salary for ${employee.name} (ID: ${employee.id}) for month $month")
 
@@ -184,6 +185,7 @@ class SalaryManager {
 
     private suspend fun calculateAdminSalary(employee: Employee, month: String, year: Int) {
         try {
+            Log.d(TAG, "DEBUG ADMIN attendanceDays = ${employee.attendanceDays}")
             Log.d(TAG, "Calculating ADMIN salary for ${employee.name}")
 
             // Admin gets salary as entered in employee record
@@ -272,23 +274,18 @@ class SalaryManager {
 
     private suspend fun calculateCoachSalary(employee: Employee, allTrainees: List<Trainee>, month: String, year: Int) {
         try {
-            // Read coach type safely from Firestore (default to "academy" if null)
+            Log.d(TAG, "DEBUG COACH attendanceDays = ${employee.attendanceDays}")
             val coachType = employee.coachType ?: "academy"
-            // 🔵 Special salary rule for المدينة الرياضية
-            if (employee.branch == "المدينة الرياضية") {
 
+            // Unified attendance-based salary logic for "team" and "المدينة الرياضية" coaches
+            if (employee.branch == "المدينة الرياضية" || coachType == "team") {
                 val baseSalary = employee.salary
-                val totalSessions = 8
-
-                val presentSessions =
-                    employee.attendanceDays.values.count { it }.coerceAtMost(totalSessions)
-
-                val absentSessions = totalSessions - presentSessions
-
-                val sessionValue =
-                    if (totalSessions > 0) baseSalary / totalSessions else 0.0
-
-                val totalPayments = presentSessions * sessionValue
+                val totalWorkingDays = 8
+                val presentDays = employee.attendanceDays.values.count { it }.coerceAtMost(totalWorkingDays)
+                val absenceDays = totalWorkingDays - presentDays
+                val absencePercentage = if (totalWorkingDays > 0) (absenceDays.toDouble() / totalWorkingDays) * 100 else 0.0
+                val sessionValue = if (totalWorkingDays > 0) baseSalary / totalWorkingDays else 0.0
+                val finalSalary = presentDays * sessionValue
 
                 val salary = Salary(
                     employeeId = employee.id,
@@ -301,13 +298,13 @@ class SalaryManager {
                     baseSalary = baseSalary,
                     totalTrainees = 0,
                     traineeDetails = emptyList(),
-                    totalPayments = totalPayments,
-                    absenceDays = absentSessions,
-                    totalWorkingDays = totalSessions,
-                    absencePercentage = 0.0,
+                    totalPayments = finalSalary,
+                    absenceDays = absenceDays,
+                    totalWorkingDays = totalWorkingDays,
+                    absencePercentage = absencePercentage,
                     deductionAmount = 0.0,
                     deductionDetails = emptyList(),
-                    finalSalary = totalPayments,
+                    finalSalary = finalSalary,
                     calculatedAt = Timestamp.now()
                 )
 
@@ -326,61 +323,9 @@ class SalaryManager {
                         .set(salary.copy(id = docId))
                         .await()
                 }
-
                 return
             }
 
-            // TEAM salary logic (if coachType is "team")
-            if (coachType == "team") {
-
-                val baseSalary = employee.salary
-                val totalSessions = 8
-                val presentSessions =
-                    employee.attendanceDays.values.count { it }.coerceAtMost(totalSessions)
-
-                val sessionValue =
-                    if (totalSessions > 0) baseSalary / totalSessions else 0.0
-
-                val totalPayments = presentSessions * sessionValue
-
-                val salary = Salary(
-                    employeeId = employee.id,
-                    employeeName = employee.name,
-                    role = employee.role,
-                    branch = employee.branch,
-                    coachType = employee.coachType ?: "academy",
-                    month = month,
-                    year = year,
-                    baseSalary = baseSalary,
-                    totalTrainees = 0,
-                    traineeDetails = emptyList(),
-                    totalPayments = totalPayments,
-                    absenceDays = totalSessions - presentSessions,
-                    totalWorkingDays = totalSessions,
-                    absencePercentage = 0.0,
-                    deductionAmount = 0.0,
-                    deductionDetails = emptyList(),
-                    finalSalary = totalPayments,
-                    calculatedAt = Timestamp.now()
-                )
-
-                val existingSalary = db.collection("salaries")
-                    .whereEqualTo("employeeId", employee.id)
-                    .whereEqualTo("month", month)
-                    .get()
-                    .await()
-
-                if (existingSalary.isEmpty) {
-                    db.collection("salaries").add(salary).await()
-                } else {
-                    val docId = existingSalary.documents.first().id
-                    db.collection("salaries").document(docId)
-                        .set(salary.copy(id = docId))
-                        .await()
-                }
-
-                return
-            }
             Log.d(TAG, "Calculating COACH salary for ${employee.name}")
 
             // Get employee's trainees - check both coachId and coachName for better matching
@@ -607,6 +552,7 @@ class SalaryManager {
             // Prefer to run on or after the 1st. If the app wasn't opened on the 1st,
             // we still proceed the first time it opens in the new month.
             Log.d(TAG, "No salaries found for $monthKey (day=$dayOfMonth). Triggering monthly calculation...")
+            Log.d(TAG, "DEBUG Monthly rollover triggered for month = $monthKey")
             val ok = calculateMonthlySalaries()
             clearAllCoachAttendance()
             ok
@@ -677,6 +623,7 @@ class SalaryManager {
 
     private suspend fun clearAllCoachAttendance() {
         try {
+            Log.d(TAG, "DEBUG Clearing attendanceDays for all coaches/admins")
             val snap = db.collection("employees").whereIn("role", listOf("coach", "admin", "head_admin")).get().await()
             for (doc in snap.documents) {
                 db.collection("employees").document(doc.id).update("attendanceDays", emptyMap<String, Boolean>()).await()

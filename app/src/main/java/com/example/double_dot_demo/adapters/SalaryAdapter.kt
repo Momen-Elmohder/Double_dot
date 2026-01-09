@@ -70,8 +70,20 @@ class SalaryAdapter(
             holder.cardView.setOnLongClickListener {
                 val context = holder.itemView.context
 
+                val roleLower = salary.role.trim().lowercase().replace(" ", "_")
+                val isCoach = roleLower == "coach" || roleLower == "head_coach"
+
+                val coachTypeLine =
+                    if (isCoach) {
+                        "\nCoach Type : ${salary.coachType ?: "academy"}"
+                    } else {
+                        ""
+                    }
+
                 val traineesText =
-                    if (salary.traineeDetails.isEmpty()) {
+                    if (!isCoach) {
+                        "Not applicable"
+                    } else if (salary.traineeDetails.isEmpty()) {
                         "No trainees"
                     } else {
                         salary.traineeDetails.joinToString("\n") {
@@ -81,42 +93,44 @@ class SalaryAdapter(
 
                 val notesText =
                     if (salary.deductionDetails.isEmpty()) {
-                        "No attendance notes"
+                        "No deductions applied"
                     } else {
                         salary.deductionDetails.joinToString("\n") {
                             "• ${it.description} (${numberFormat.format(it.amount)})"
                         }
                     }
 
-                val roleLower = salary.role.trim().lowercase()
-                val coachTypeLine =
-                    if (roleLower == "coach" || roleLower == "head_coach") {
-                        "\nCoach Type: ${salary.coachType ?: "academy"}"
-                    } else {
-                        ""
-                    }
+                val showTraineesSection = !(roleLower == "admin" || roleLower == "head_admin")
 
-                val message = """
-Employee: ${salary.employeeName}
-Month: ${salary.month}
-Role: ${salary.role}$coachTypeLine
-
-──────── Salary Breakdown ────────
-Total Income: ${numberFormat.format(salary.totalPayments)}
-Final Salary: ${numberFormat.format(salary.finalSalary)}
-
-──────── Trainees (${salary.totalTrainees}) ────────
+                val traineesSection = if (showTraineesSection) {
+                    """
+──────────── Trainees (${salary.totalTrainees}) ────────────
 $traineesText
 
-──────── Attendance ────────
-Working Days: ${salary.totalWorkingDays}
-Absence Days: ${salary.absenceDays}
-Absence Rate: ${String.format("%.1f", salary.absencePercentage)}%
+""".trimIndent()
+                } else {
+                    ""
+                }
 
-──────── Deductions ────────
-${numberFormat.format(salary.deductionAmount)}
+                val message = """
+Employee Name : ${salary.employeeName}
+Month         : ${salary.month}
+Role          : ${salary.role}$coachTypeLine
 
-──────── Attendance Notes ────────
+──────────── Salary Summary ────────────
+Gross Income (100%) : ${numberFormat.format(salary.totalPayments / 0.4)}
+Total Payments (40%): ${numberFormat.format(salary.totalPayments)}
+Final Salary        : ${numberFormat.format(salary.finalSalary)}
+
+$traineesSection──────────── Attendance Details ────────────
+Working Days : ${if (salary.totalWorkingDays > 0) salary.totalWorkingDays else "Not recorded"}
+Absence Days : ${salary.absenceDays}
+Absence Rate : ${String.format("%.1f", salary.absencePercentage)}%
+
+──────────── Deductions ────────────
+Total Deduction : ${numberFormat.format(salary.deductionAmount)}
+
+──────────── Deduction Details ────────────
 $notesText
 """.trimIndent()
 
