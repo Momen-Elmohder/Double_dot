@@ -66,6 +66,16 @@ class CreateEmployeeAccountDialog(
         binding.tilPhone.setEndIconOnClickListener {
             try { onPickPhoneClickListener?.invoke() } catch (_: Exception) {}
         }
+
+        binding.rgCoachType.setOnCheckedChangeListener { _, _ ->
+            val role = binding.actvRole.text.toString().trim()
+            if (shouldShowSalary(role)) {
+                binding.tilSalary.visibility = View.VISIBLE
+            } else {
+                binding.tilSalary.visibility = View.GONE
+                binding.etSalary.setText("")
+            }
+        }
     }
 
     private fun setupRoleDropdown() {
@@ -79,6 +89,21 @@ class CreateEmployeeAccountDialog(
         binding.actvRole.setAdapter(adapter)
         binding.actvRole.setOnClickListener { binding.actvRole.showDropDown() }
         binding.actvRole.setOnFocusChangeListener { _, hasFocus -> if (hasFocus) binding.actvRole.showDropDown() }
+        binding.actvRole.setOnItemClickListener { _, _, _, _ ->
+            val role = binding.actvRole.text.toString().trim().lowercase().replace(" ", "_")
+
+            // Coach type radios only for coach
+            binding.rgCoachType.visibility =
+                if (role == "coach") View.VISIBLE else View.GONE
+
+            // Always re-check salary visibility
+            if (shouldShowSalary(role)) {
+                binding.tilSalary.visibility = View.VISIBLE
+            } else {
+                binding.tilSalary.visibility = View.GONE
+                binding.etSalary.setText("")
+            }
+        }
     }
 
     private fun setupBranchDropdown() {
@@ -92,16 +117,12 @@ class CreateEmployeeAccountDialog(
         }
 
         binding.actvBranch.setOnItemClickListener { _, _, _, _ ->
-            val branch = binding.actvBranch.text.toString().trim()
-
-            if (branch == "المدينة الرياضية") {
+            val role = binding.actvRole.text.toString().trim()
+            if (shouldShowSalary(role)) {
                 binding.tilSalary.visibility = View.VISIBLE
-                binding.tilTotalDays.visibility = View.GONE
-                binding.etTotalDays.setText("")
             } else {
                 binding.tilSalary.visibility = View.GONE
                 binding.etSalary.setText("")
-                binding.tilTotalDays.visibility = View.VISIBLE
             }
         }
     }
@@ -137,13 +158,25 @@ class CreateEmployeeAccountDialog(
         val branch = binding.actvBranch.text.toString().trim()
         val password = binding.etPassword.text.toString()
 
+        val role = when (selectedRole.lowercase().replace(" ", "_")) {
+            "head_admin" -> "head_admin"
+            "admin" -> "admin"
+            "coach" -> "coach"
+            else -> "coach"
+        }
+
+        val coachType =
+            if (role == "coach") {
+                if (binding.rbTeam.isChecked) "team" else "academy"
+            } else "academy"
+
         val salary =
-            if (branch == "المدينة الرياضية")
+            if (shouldShowSalary(role))
                 binding.etSalary.text.toString().toDoubleOrNull() ?: 0.0
             else 0.0
 
-        if (branch == "المدينة الرياضية" && salary <= 0.0) {
-            Toast.makeText(context, "Please enter salary for المدينة الرياضية", Toast.LENGTH_SHORT).show()
+        if (shouldShowSalary(role) && salary <= 0.0) {
+            Toast.makeText(context, "Please enter salary", Toast.LENGTH_SHORT).show()
             return
         }
 
@@ -151,12 +184,6 @@ class CreateEmployeeAccountDialog(
             if (branch == "المدينة الرياضية") 30
             else binding.etTotalDays.text.toString().trim().toIntOrNull() ?: 0
 
-        val role = when (selectedRole.lowercase()) {
-            "head admin" -> "head_admin"
-            "admin" -> "admin"
-            "coach" -> "coach"
-            else -> "coach"
-        }
 
         binding.btnCreateAccount.isEnabled = false
         binding.btnCreateAccount.text = "Creating Account..."
@@ -182,6 +209,7 @@ class CreateEmployeeAccountDialog(
                     totalDays = totalDays,
                     remainingDays = totalDays,
                     salary = salary,
+                    coachType = coachType,
                     status = "active",
                     createdAt = Timestamp.now(),
                     updatedAt = Timestamp.now()
@@ -227,5 +255,20 @@ class CreateEmployeeAccountDialog(
         binding.btnCreateAccount.isEnabled = true
         binding.btnCreateAccount.text = "Create Account"
         Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+    }
+
+    private fun shouldShowSalary(role: String): Boolean {
+        val roleLower = role.trim().lowercase().replace(" ", "_")
+        val branch = binding.actvBranch.text.toString().trim()
+        val isTeamCoach =
+            roleLower == "coach" && binding.rgCoachType.checkedRadioButtonId == R.id.rbTeam
+
+        val isMadinaCoach =
+            roleLower == "coach" && branch == "المدينة الرياضية"
+
+        return roleLower == "admin" ||
+               roleLower == "head_admin" ||
+               isTeamCoach ||
+               isMadinaCoach
     }
 }

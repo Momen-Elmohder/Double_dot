@@ -137,6 +137,31 @@
 
         </com.google.android.material.textfield.TextInputLayout>
 
+        <!-- Coach Type Selection (Only for Coach role) -->
+        <RadioGroup
+            android:id="@+id/rgCoachType"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            android:orientation="horizontal"
+            android:visibility="gone">
+
+            <RadioButton
+                android:id="@+id/rbAcademy"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Academy"
+                android:checked="true" />
+
+            <RadioButton
+                android:id="@+id/rbTeam"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="24dp"
+                android:text="Team" />
+
+        </RadioGroup>
+
         <!-- Salary Input (Only for المدينة الرياضية) -->
         <com.google.android.material.textfield.TextInputLayout
             android:id="@+id/tilSalary"

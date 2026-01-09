@@ -8,12 +8,13 @@ data class Salary(
     val employeeName: String = "",
     val role: String = "",
     val branch: String = "",
-    val month: String = "", // Format: "January 2024"
+    val month: String = "",
     val year: Int = 0,
     val baseSalary: Double = 0.0,
+    val coachType: String = "academy",
     val totalTrainees: Int = 0,
     val traineeDetails: List<TraineeDetail> = emptyList(),
-    val totalPayments: Double = 0.0, // From trainees
+    val totalPayments: Double = 0.0,
     val absenceDays: Int = 0,
     val totalWorkingDays: Int = 0,
     val absencePercentage: Double = 0.0,
@@ -25,8 +26,30 @@ data class Salary(
     val updatedAt: Timestamp = Timestamp.now(),
     val calculatedAt: Timestamp = Timestamp.now()
 ) {
-    // Required empty constructor for Firestore
-    constructor() : this("", "", "", "", "", "", 0, 0.0, 0, emptyList(), 0.0, 0, 0, 0.0, 0.0, emptyList(), 0.0, false, Timestamp.now(), Timestamp.now(), Timestamp.now())
+    constructor() : this(
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        0,
+        0.0,
+        "academy",
+        0,
+        emptyList(),
+        0.0,
+        0,
+        0,
+        0.0,
+        0.0,
+        emptyList(),
+        0.0,
+        false,
+        Timestamp.now(),
+        Timestamp.now(),
+        Timestamp.now()
+    )
 }
 
 data class TraineeDetail(
@@ -39,24 +62,10 @@ data class TraineeDetail(
 }
 
 data class DeductionDetail(
-    val type: String = "", // "ABSENCE", "PENALTY", "OTHER"
+    val type: String = "",
     val description: String = "",
     val amount: Double = 0.0,
     val date: Timestamp? = null
 ) {
     constructor() : this("", "", 0.0, null)
 }
-
-data class SalaryInfo(
-    val totalPayments: Double = 0.0,
-    val baseSalary: Double = 0.0,
-    val absencePercentage: Double = 0.0,
-    val deductionAmount: Double = 0.0,
-    val finalSalary: Double = 0.0,
-    val traineeCount: Int = 0,
-    val traineeDetails: List<TraineeDetail> = emptyList(),
-    val deductionDetails: List<DeductionDetail> = emptyList()
-)
-
-
-

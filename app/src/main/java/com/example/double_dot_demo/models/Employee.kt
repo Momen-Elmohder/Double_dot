@@ -9,10 +9,8 @@ data class Employee(
     val role: String = "", // head_coach, coach, admin
     val phone: String = "",
     val branch: String = "",
-
-    // 🔵 NEW: Base salary (used for المدينة الرياضية only)
+    val coachType: String = "academy", // "team" or "academy"
     val salary: Double = 0.0,
-
     val totalDays: Int = 0,
     val remainingDays: Int = 0,
     val status: String = "active", // active, inactive

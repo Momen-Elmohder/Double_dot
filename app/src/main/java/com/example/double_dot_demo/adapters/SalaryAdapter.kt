@@ -88,10 +88,18 @@ class SalaryAdapter(
                         }
                     }
 
+                val roleLower = salary.role.trim().lowercase()
+                val coachTypeLine =
+                    if (roleLower == "coach" || roleLower == "head_coach") {
+                        "\nCoach Type: ${salary.coachType ?: "academy"}"
+                    } else {
+                        ""
+                    }
+
                 val message = """
 Employee: ${salary.employeeName}
 Month: ${salary.month}
-Role: ${salary.role}
+Role: ${salary.role}$coachTypeLine
 
 ──────── Salary Breakdown ────────
 Total Income: ${numberFormat.format(salary.totalPayments)}

@@ -270,6 +270,13 @@ class SalaryFragment : Fragment() {
                 y += 22
                 page.canvas.drawText("Role: ${s.role}", 40f, y.toFloat(), paint)
                 y += 16
+                page.canvas.drawText(
+                    "Coach Type: ${s.coachType ?: "academy"}",
+                    40f,
+                    y.toFloat(),
+                    paint
+                )
+                y += 16
                 page.canvas.drawText("Final Salary: ${String.format("%.2f", s.finalSalary)}", 40f, y.toFloat(), paint)
                 y += 20
 
@@ -297,6 +304,14 @@ class SalaryFragment : Fragment() {
                 page.canvas.drawText("Attendance", 40f, y.toFloat(), titlePaint)
                 y += 18
                 page.canvas.drawText("Working Days: ${s.totalWorkingDays}", 60f, y.toFloat(), paint)
+                y += 16
+                val attendedDays = s.totalWorkingDays - s.absenceDays
+                page.canvas.drawText(
+                    "Attended Days: $attendedDays",
+                    60f,
+                    y.toFloat(),
+                    paint
+                )
                 y += 16
                 page.canvas.drawText("Absence Days: ${s.absenceDays}", 60f, y.toFloat(), paint)
                 y += 16
