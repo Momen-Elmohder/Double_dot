@@ -284,7 +284,7 @@ class AddTraineeDialog(
             return false
         }
 
-        val monthlyFee = monthlyFeeText.toIntOrNull()
+        val monthlyFee = monthlyFeeText.toDoubleOrNull()
         if (monthlyFee == null || monthlyFee < 0) {
             binding.tilMonthlyFee.error = "Please enter a valid fee"
             return false
@@ -302,7 +302,7 @@ class AddTraineeDialog(
                 binding.cbTuesday.isChecked || binding.cbWednesday.isChecked ||
                 binding.cbThursday.isChecked || binding.cbFriday.isChecked ||
                 binding.cbSaturday.isChecked
-        
+
         if (!hasSelectedDay) {
             Toast.makeText(context, "Please select at least one training day", Toast.LENGTH_SHORT).show()
             return false
@@ -320,14 +320,14 @@ class AddTraineeDialog(
         val totalSessions = binding.etTotalSessions.text.toString().toInt()
         val coachName = binding.actvCoach.text.toString().trim()
         val coachId = coachNameToId[coachName] ?: ""
-        val monthlyFee = binding.etMonthlyFee.text.toString().toInt()
+        val monthlyFee = binding.etMonthlyFee.text.toString().toDouble()
         val isPaid = true // Trainees are automatically paid
-        val paymentAmount = if (isPaid) monthlyFee.toDouble() else 0.0
-        
+        val paymentAmount = if (isPaid) monthlyFee else 0.0
+
         // Get schedule data
         val scheduleTime = binding.actvScheduleTime.text.toString().trim()
         val selectedDays = mutableListOf<String>()
-        
+
         if (binding.cbSunday.isChecked) selectedDays.add("الأحد")
         if (binding.cbMonday.isChecked) selectedDays.add("الإثنين")
         if (binding.cbTuesday.isChecked) selectedDays.add("الثلاثاء")
@@ -374,4 +374,4 @@ class AddTraineeDialog(
         coachesListener?.remove()
         coachesListener = null
     }
-} 
+}

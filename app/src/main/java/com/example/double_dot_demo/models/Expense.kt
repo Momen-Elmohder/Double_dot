@@ -8,6 +8,7 @@ data class Expense(
     val amount: Double = 0.0,
     val type: String = "EXPENSE", // EXPENSE or INCOME
     val category: String = "",
+    val operationType: String = "", // TRAINEE_ADDED | TRAINEE_RENEWED | MANUAL
     val description: String = "",
     val branch: String = "",
     val date: Timestamp = Timestamp.now(),
@@ -20,4 +21,4 @@ data class Expense(
     val relatedTraineeId: String = "", // for trainee payment income
     val createdAt: Timestamp = Timestamp.now(),
     val updatedAt: Timestamp = Timestamp.now()
-) 
+)

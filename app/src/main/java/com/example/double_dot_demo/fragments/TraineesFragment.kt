@@ -634,7 +634,15 @@ class TraineesFragment : Fragment() {
                 .add(trainee)
                 .addOnSuccessListener { documentReference ->
                     val traineeWithId = trainee.copy(id = documentReference.id)
-                    
+
+                    // 🟢 CREATE INCOME WHEN TRAINEE IS ADDED
+                    createTraineeExpenseEntry(
+                        trainee = traineeWithId,
+                        traineeId = traineeWithId.id,
+                        operationType = "TRAINEE_ADDED",
+                        amount = traineeWithId.monthlyFee
+                    )
+
                     // Add to schedule automatically
                     scheduleManager.addTraineeToSchedule(traineeWithId) { scheduleSuccess ->
                         if (scheduleSuccess) {
@@ -643,13 +651,10 @@ class TraineesFragment : Fragment() {
                             android.util.Log.w("TraineesFragment", "Failed to add trainee to schedule")
                         }
                     }
-                    
+
                     progressDialog.dismiss()
                     showToast("Trainee added successfully")
-                    
-                    // Automatically create expense entry since trainees are automatically paid
-                    createTraineeExpenseEntry(trainee, documentReference.id, "TRAINEE_ADDED")
-                    
+
                     // Automatically calculate salary for the coach when trainee is added
                     if (trainee.coachId.isNotEmpty()) {
                         android.util.Log.d("TraineesFragment", "Starting automatic salary calculation for coach: ${trainee.coachId}")
@@ -686,12 +691,12 @@ class TraineesFragment : Fragment() {
     private fun updateTrainee(trainee: Trainee) {
         try {
             if (!isAdded || context == null) return
-            
+
             val progressDialog = showLoadingDialog()
-            
+
             // Get the original trainee data to compare schedule changes
             val originalTrainee = trainees.find { it.id == trainee.id }
-            
+
             firestore.collection("trainees").document(trainee.id)
                 .set(trainee)
                 .addOnSuccessListener {
@@ -714,13 +719,10 @@ class TraineesFragment : Fragment() {
                             }
                         }
                     }
-                    
+
                     progressDialog.dismiss()
                     showToast("Trainee updated successfully")
-                    
-                    // Automatically create expense entry since trainees are automatically paid
-                    createTraineeExpenseEntry(trainee, trainee.id, "TRAINEE_UPDATED")
-                    
+
                     // Automatically calculate salary for the coach when trainee is updated
                     if (trainee.coachId.isNotEmpty()) {
                         fragmentScope.launch {
@@ -750,11 +752,11 @@ class TraineesFragment : Fragment() {
     private fun deleteTrainee(trainee: Trainee) {
         try {
             if (!isAdded || context == null) return
-            
+
             android.util.Log.d("TraineesFragment", "Attempting to delete trainee: ${trainee.name} (ID: ${trainee.id})")
-            
+
             val progressDialog = showLoadingDialog()
-            
+
             firestore.collection("trainees").document(trainee.id)
                 .delete()
                 .addOnSuccessListener {
@@ -766,11 +768,11 @@ class TraineesFragment : Fragment() {
                             android.util.Log.w("TraineesFragment", "Failed to remove trainee from schedule")
                         }
                     }
-                    
+
                     progressDialog.dismiss()
                     android.util.Log.d("TraineesFragment", "Trainee deleted successfully from Firestore: ${trainee.name}")
                     showToast("Trainee deleted successfully")
-                    
+
                     // Automatically calculate salary for the coach when trainee is deleted
                     if (trainee.coachId.isNotEmpty()) {
                         fragmentScope.launch {
@@ -786,7 +788,7 @@ class TraineesFragment : Fragment() {
                             }
                         }
                     }
-                    
+
                     // Force refresh the list to ensure UI updates
                     loadTrainees()
                 }
@@ -805,7 +807,7 @@ class TraineesFragment : Fragment() {
     private fun showRenewTraineeDialog(trainee: Trainee) {
         try {
             if (!isAdded || context == null) return
-            
+
             val dialog = RenewTraineeDialog(requireContext(), trainee)
             dialog.setOnRenewClickListener { traineeToRenew, newSessions, newFee ->
                 safeExecute {
@@ -818,56 +820,65 @@ class TraineesFragment : Fragment() {
         }
     }
 
-    private fun renewTrainee(trainee: Trainee, newSessions: Int, newFee: Int) {
-        try {
-            if (!isAdded || context == null) return
-            
-            val progressDialog = showLoadingDialog()
-            
-            val newPaymentAmount = newFee.toDouble() // Trainees are automatically paid
-            
-            val updates = hashMapOf<String, Any>(
-                "totalSessions" to newSessions,
-                "remainingSessions" to newSessions,
-                "monthlyFee" to newFee,
-                "paymentAmount" to newPaymentAmount,
-                "isPaid" to true, // Trainees are automatically paid
-                "lastRenewalDate" to Timestamp.now(),
-                "attendanceSessions" to hashMapOf<String, Any>() // Reset attendance to empty
-            )
-            
-            firestore.collection("trainees").document(trainee.id)
-                .update(updates)
-                .addOnSuccessListener {
-                    progressDialog.dismiss()
-                    showToast("Trainee renewed successfully")
-                    
-                    // Automatically create expense entry since trainees are automatically paid
-                    val updatedTrainee = trainee.copy(
-                        monthlyFee = newFee,
-                        paymentAmount = newPaymentAmount,
-                        isPaid = true
-                    )
-                    createTraineeExpenseEntry(updatedTrainee, trainee.id, "TRAINEE_RENEWED")
+    private fun renewTrainee(
+        trainee: Trainee,
+        newSessions: Int,
+        newFee: Double
+    ) {
+        if (!isAdded || context == null) return
+
+        val progressDialog = showLoadingDialog()
+
+        // ✅ accumulate paymentAmount so salary & branch cards update correctly
+        val newPaymentAmount = trainee.paymentAmount + newFee
+
+        val updates = hashMapOf<String, Any>(
+            "totalSessions" to newSessions,
+            "remainingSessions" to newSessions,
+            "monthlyFee" to newFee,
+            "paymentAmount" to newPaymentAmount,   // ✅ FIX
+            "isPaid" to true,                       // ✅ mark paid
+            "lastRenewalDate" to Timestamp.now(),
+            "attendanceSessions" to emptyMap<String, Any>()
+        )
+
+        firestore.collection("trainees")
+            .document(trainee.id)
+            .update(updates)
+            .addOnSuccessListener {
+
+                // 🟢 record income in expenses (reporting only)
+                createTraineeExpenseEntry(
+                    trainee = trainee.copy(paymentAmount = newPaymentAmount),
+                    traineeId = trainee.id,
+                    operationType = "TRAINEE_RENEWED",
+                    amount = newFee
+                )
+
+                // 🔁 recalculate salary for coach
+                if (trainee.coachId.isNotEmpty()) {
+                    fragmentScope.launch {
+                        salaryManager.recalculateSalaryForCoach(trainee.coachId)
+                    }
                 }
-                .addOnFailureListener { e ->
-                    progressDialog.dismiss()
-                    android.util.Log.e("TraineesFragment", "Error renewing trainee: ${e.message}")
-                    showToast("Failed to renew trainee")
-                }
-        } catch (e: Exception) {
-            android.util.Log.e("TraineesFragment", "Error renewing trainee: ${e.message}")
-        }
+
+                progressDialog.dismiss()
+                showToast("Trainee renewed successfully")
+            }
+            .addOnFailureListener { e ->
+                progressDialog.dismiss()
+                showToast("Renew failed: ${e.message}")
+            }
     }
 
     private fun toggleFreezeStatus(trainee: Trainee) {
         try {
             if (!isAdded || context == null) return
-            
+
             val progressDialog = showLoadingDialog()
-            
+
             val newStatus = if (trainee.status == "frozen") "active" else "frozen"
-            
+
             firestore.collection("trainees").document(trainee.id)
                 .update("status", newStatus)
                 .addOnSuccessListener {
@@ -894,7 +905,7 @@ class TraineesFragment : Fragment() {
                             }
                         }
                     }
-                    
+
                     progressDialog.dismiss()
                     showToast("Trainee ${if (newStatus == "frozen") "frozen" else "unfrozen"}")
                 }
@@ -911,7 +922,7 @@ class TraineesFragment : Fragment() {
     private fun showTraineeDetailsDialog(trainee: Trainee) {
         try {
             if (!isAdded || context == null) return
-            
+
             val details = StringBuilder()
             details.append("Name: ${trainee.name}\n")
             details.append("Age: ${trainee.age}\n")
@@ -922,11 +933,11 @@ class TraineesFragment : Fragment() {
             details.append("Status: ${trainee.status}\n")
             details.append("Sessions: ${trainee.remainingSessions}/${trainee.totalSessions}\n")
             details.append("Payment: ${if (trainee.isPaid) "Paid" else "Unpaid"}")
-            
+
             if (trainee.lastRenewalDate != null) {
                 details.append("\nLast Renewal: ${dateFormat.format(trainee.lastRenewalDate.toDate())}")
             }
-            
+
             android.app.AlertDialog.Builder(requireContext())
                 .setTitle("Trainee Details")
                 .setMessage(details.toString())
@@ -986,7 +997,7 @@ class TraineesFragment : Fragment() {
 
     override fun onDestroyView() {
         super.onDestroyView()
-        
+
         // Remove listeners to prevent memory leaks
         try {
             traineesListener?.remove()
@@ -994,14 +1005,14 @@ class TraineesFragment : Fragment() {
         } catch (e: Exception) {
             android.util.Log.e("TraineesFragment", "Error removing listeners: ${e.message}")
         }
-        
+
         // Cancel any pending coroutines
         try {
             fragmentScope.coroutineContext.cancelChildren()
         } catch (e: Exception) {
             android.util.Log.e("TraineesFragment", "Error canceling coroutines: ${e.message}")
         }
-        
+
         _binding = null
     }
 
@@ -1034,54 +1045,117 @@ class TraineesFragment : Fragment() {
         return currentUserRole == "head_coach" || currentUserRole == "admin"
     }
 
-    private fun createTraineeExpenseEntry(trainee: Trainee, traineeId: String, operationType: String) {
+    private fun createTraineeExpenseEntry(
+        trainee: Trainee,
+        traineeId: String,
+        operationType: String,
+        amount: Double
+    ) {
         try {
             if (!isAdded || context == null) return
-            
+
             // Get current month and year using consistent format
             val calendar = java.util.Calendar.getInstance()
             val monthFormat = java.text.SimpleDateFormat("MMMM yyyy", java.util.Locale.getDefault())
             val currentMonth = monthFormat.format(calendar.time)
             val currentYear = calendar.get(java.util.Calendar.YEAR)
-            
+
             // Get current user info
             val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
             val currentUserId = currentUser?.uid ?: ""
             val currentUserName = currentUser?.displayName ?: "Unknown User"
-            
-            // Create expense entry for trainee payment
-            val expense = com.example.double_dot_demo.models.Expense(
-                id = "",
-                title = "Trainee Payment - ${trainee.name}",
-                amount = trainee.paymentAmount,
-                type = "INCOME", // Trainee payments are income
-                category = "TRAINEE_PAYMENT",
-                description = "${operationType}: ${trainee.name} (${trainee.age} years) - ${trainee.coachName}",
-                branch = trainee.branch,
-                date = com.google.firebase.Timestamp.now(),
-                month = currentMonth,
-                year = currentYear,
-                createdBy = currentUserId,
-                createdByName = currentUserName,
-                isAutoCalculated = true, // Auto-calculated from trainee payment
-                relatedTraineeId = traineeId,
-                createdAt = com.google.firebase.Timestamp.now(),
-                updatedAt = com.google.firebase.Timestamp.now()
-            )
-            
-            // Add to expenses collection
-            firestore.collection("expenses")
-                .add(expense)
-                .addOnSuccessListener { documentReference ->
-                    android.util.Log.d("TraineesFragment", "Auto-created expense entry for trainee ${trainee.name}: $${String.format("%.2f", trainee.paymentAmount)}")
-                }
-                .addOnFailureListener { e ->
-                    android.util.Log.e("TraineesFragment", "Error creating expense entry for trainee ${trainee.name}: ${e.message}")
-                }
-                
+
+            // 🔒 Prevent duplicate income for same trainee in same month and operationType
+            if (operationType == "TRAINEE_ADDED") {
+                firestore.collection("expenses")
+                    .whereEqualTo("type", "INCOME")
+                    .whereEqualTo("relatedTraineeId", traineeId)
+                    .whereEqualTo("month", currentMonth)
+                    .whereEqualTo("operationType", "TRAINEE_ADDED")
+                    .limit(1)
+                    .get()
+                    .addOnSuccessListener { snapshot ->
+                        if (!snapshot.isEmpty) {
+                            android.util.Log.d(
+                                "TraineesFragment",
+                                "Initial trainee income already exists for ${trainee.name} in $currentMonth – skipping"
+                            )
+                            return@addOnSuccessListener
+                        }
+
+                        addExpenseInternal(
+                            trainee,
+                            traineeId,
+                            operationType,
+                            amount,
+                            currentMonth,
+                            currentYear,
+                            currentUserId,
+                            currentUserName
+                        )
+                    }
+            } else {
+                // ✅ Allow multiple renewals in the same month
+                addExpenseInternal(
+                    trainee,
+                    traineeId,
+                    operationType,
+                    amount,
+                    currentMonth,
+                    currentYear,
+                    currentUserId,
+                    currentUserName
+                )
+            }
         } catch (e: Exception) {
             android.util.Log.e("TraineesFragment", "Error creating trainee expense entry: ${e.message}")
         }
+    }
+
+    private fun addExpenseInternal(
+        trainee: Trainee,
+        traineeId: String,
+        operationType: String,
+        amount: Double,
+        currentMonth: String,
+        currentYear: Int,
+        currentUserId: String,
+        currentUserName: String
+    ) {
+        val expense = com.example.double_dot_demo.models.Expense(
+            id = "",
+            title = "Trainee Payment - ${trainee.name}",
+            amount = amount,
+            type = "INCOME",
+            category = "TRAINEE_PAYMENT",
+            description = "$operationType: ${trainee.name} (${trainee.age}) - ${trainee.coachName}",
+            branch = trainee.branch,
+            date = com.google.firebase.Timestamp.now(),
+            month = currentMonth,
+            year = currentYear,
+            createdBy = currentUserId,
+            createdByName = currentUserName,
+            isAutoCalculated = true,
+            relatedTraineeId = traineeId,
+            createdAt = com.google.firebase.Timestamp.now(),
+            updatedAt = com.google.firebase.Timestamp.now(),
+            operationType = operationType
+        )
+
+        firestore.collection("expenses")
+            .add(expense)
+            .addOnSuccessListener {
+                android.util.Log.d(
+                    "TraineesFragment",
+                    "Income recorded: ${trainee.name} | $operationType | $currentMonth | $amount"
+                )
+            }
+            .addOnFailureListener { e ->
+                android.util.Log.e(
+                    "TraineesFragment",
+                    "Failed to record income: ${e.message}"
+                )
+            }
     }
 
     companion object {

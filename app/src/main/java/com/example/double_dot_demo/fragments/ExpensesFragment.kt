@@ -21,7 +21,6 @@ import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
-import java.text.SimpleDateFormat
 import java.util.*
 import android.widget.Button
 import android.widget.AutoCompleteTextView
@@ -31,6 +30,7 @@ import com.example.double_dot_demo.models.Employee
 import com.example.double_dot_demo.utils.ExpenseManager
 import com.example.double_dot_demo.utils.SalaryManager
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
 
 class ExpensesFragment : Fragment() {
 
@@ -114,6 +114,7 @@ class ExpensesFragment : Fragment() {
             viewLifecycleOwner.lifecycleScope.launch {
                 try {
                     expenseManager.ensureMonthlyRolloverIfNeeded()
+                    expenseManager.resetTraineeFeesIfNewMonth()
                     salaryManager.performMonthlyRolloverIfNeeded()
                 } catch (_: Exception) {}
             }
@@ -599,27 +600,29 @@ class ExpensesFragment : Fragment() {
         return try {
             // Find all trainees assigned to this coach
             val coachTrainees = trainees.filter { it.coachId == coach.id }
-            
+
+            // NOTE: trainee.paymentAmount is used ONLY for salary calculation,
+            // NOT for income. Income comes exclusively from Expense(type="INCOME").
             // Calculate total payments from trainees
             val totalPayments = coachTrainees.sumOf { it.paymentAmount }
-            
+
             // Calculate base salary (40% of total payments)
             val baseSalary = totalPayments * 0.4
-            
+
             // Calculate attendance stats
             val (presentCount, absentCount) = calculateAttendanceStats(coach)
             val totalDays = presentCount + absentCount
-            
+
             // Calculate absence percentage
             val absencePercent = if (totalDays > 0) {
                 (absentCount.toDouble() / totalDays.toDouble()) * 100.0
             } else {
                 0.0
             }
-            
+
             // Calculate deduction
             val deduction = baseSalary * (absencePercent / 100.0)
-            
+
             // Calculate final salary
             baseSalary - deduction
         } catch (e: Exception) {
@@ -632,25 +635,27 @@ class ExpensesFragment : Fragment() {
         return try {
             var presentCount = 0
             var absentCount = 0
-            
+
             coach.attendanceDays.forEach { (_, isPresent) ->
                 if (isPresent) presentCount++ else absentCount++
             }
-            
+
             Pair(presentCount, absentCount)
         } catch (e: Exception) {
             android.util.Log.e("ExpensesFragment", "Error calculating attendance stats: ${e.message}")
             Pair(0, 0)
         }
     }
-    
-    private fun calculateCommission(branch: String, traineeFee: Double): Double {
-        return when (branch) {
-            "نادي التوكيلات" -> traineeFee * 0.40 // 40%
-            "نادي اليخت" -> traineeFee * 0.30 // 30%
-            "المدينة الرياضية" -> 200.0 // Fixed 200 pounds
-            else -> traineeFee * 0.40 // Default to 40%
-        }
+
+
+    // New helper to sum all income for a given month, regardless of branch
+    private fun calculateTotalIncomeForMonth(month: String): Double {
+        return expenses
+            .filter {
+                it.type == "INCOME" &&
+                isExpenseInMonth(it, month)
+            }
+            .sumOf { it.amount }
     }
 
     private fun saveFile(fileName: String, content: String) {
@@ -659,13 +664,13 @@ class ExpensesFragment : Fragment() {
             // In a real app, you'd want to save to external storage and share the file
             val file = java.io.File(requireContext().filesDir, fileName)
             file.writeText(content)
-            
+
             android.widget.Toast.makeText(
                 context,
                 "Report saved as $fileName",
                 android.widget.Toast.LENGTH_LONG
             ).show()
-            
+
             android.util.Log.d("ExpensesFragment", "File saved: ${file.absolutePath}")
         } catch (e: Exception) {
             android.util.Log.e("ExpensesFragment", "Error saving file: ${e.message}")
@@ -689,14 +694,14 @@ class ExpensesFragment : Fragment() {
         return try {
             val months = mutableListOf<String>()
             val calendar = Calendar.getInstance()
-            
+
             // Generate last 12 months
             for (i in 0..11) {
                 calendar.add(Calendar.MONTH, -i)
                 months.add(dateFormat.format(calendar.time))
                 calendar.add(Calendar.MONTH, i) // Reset
             }
-            
+
             months.reversed()
         } catch (e: Exception) {
             android.util.Log.e("ExpensesFragment", "Error generating month list: ${e.message}")
@@ -728,7 +733,7 @@ class ExpensesFragment : Fragment() {
     private fun loadExpenses() {
         try {
             expensesListener?.remove()
-            
+
             expensesListener = db.collection("expenses")
                 .orderBy("date", Query.Direction.DESCENDING)
                 .addSnapshotListener { snapshot, e ->
@@ -751,10 +756,10 @@ class ExpensesFragment : Fragment() {
                             }
                         }
                     }
-                    
+
                     updateExpensesForMonth()
                     android.util.Log.d("ExpensesFragment", "Loaded ${expenses.size} expenses")
-                    
+
                     // Log some sample data for debugging
                     if (expenses.isNotEmpty()) {
                         android.util.Log.d("ExpensesFragment", "Sample expense: ${expenses.first().title} - ${expenses.first().amount}")
@@ -762,7 +767,7 @@ class ExpensesFragment : Fragment() {
                         android.util.Log.d("ExpensesFragment", "No expenses found in database")
                     }
                 }
-                
+
         } catch (e: Exception) {
             android.util.Log.e("ExpensesFragment", "Error setting up expenses listener: ${e.message}")
         }
@@ -771,7 +776,7 @@ class ExpensesFragment : Fragment() {
     private fun loadTrainees() {
         try {
             traineesListener?.remove()
-            
+
             traineesListener = db.collection("trainees")
                 .orderBy("name", Query.Direction.ASCENDING)
                 .addSnapshotListener { snapshot, e ->
@@ -794,9 +799,9 @@ class ExpensesFragment : Fragment() {
                             }
                         }
                     }
-                    
+
                     android.util.Log.d("ExpensesFragment", "Loaded ${trainees.size} trainees")
-                    
+
                     // Log some sample data for debugging
                     if (trainees.isNotEmpty()) {
                         android.util.Log.d("ExpensesFragment", "Sample trainee: ${trainees.first().name} - ${trainees.first().paymentAmount}")
@@ -804,7 +809,7 @@ class ExpensesFragment : Fragment() {
                         android.util.Log.d("ExpensesFragment", "No trainees found in database")
                     }
                 }
-                
+
         } catch (e: Exception) {
             android.util.Log.e("ExpensesFragment", "Error setting up trainees listener: ${e.message}")
         }
@@ -813,7 +818,7 @@ class ExpensesFragment : Fragment() {
     private fun loadCoaches() {
         try {
             coachesListener?.remove()
-            
+
             coachesListener = db.collection("employees")
                 .whereEqualTo("role", "coach")
                 .orderBy("name", Query.Direction.ASCENDING)
@@ -837,9 +842,9 @@ class ExpensesFragment : Fragment() {
                             }
                         }
                     }
-                    
+
                     android.util.Log.d("ExpensesFragment", "Loaded ${coaches.size} coaches")
-                    
+
                     // Log some sample data for debugging
                     if (coaches.isNotEmpty()) {
                         android.util.Log.d("ExpensesFragment", "Sample coach: ${coaches.first().name} - ${coaches.first().branch}")
@@ -847,7 +852,7 @@ class ExpensesFragment : Fragment() {
                         android.util.Log.d("ExpensesFragment", "No coaches found in database")
                     }
                 }
-                
+
         } catch (e: Exception) {
             android.util.Log.e("ExpensesFragment", "Error setting up coaches listener: ${e.message}")
         }
@@ -856,7 +861,7 @@ class ExpensesFragment : Fragment() {
     private fun loadUsers() {
         try {
             usersListener?.remove()
-            
+
             usersListener = db.collection("employees")
                 .orderBy("name", Query.Direction.ASCENDING)
                 .addSnapshotListener { snapshot, e ->
@@ -879,10 +884,10 @@ class ExpensesFragment : Fragment() {
                             }
                         }
                     }
-                    
+
                     android.util.Log.d("ExpensesFragment", "Loaded ${users.size} users")
                 }
-                
+
         } catch (e: Exception) {
             android.util.Log.e("ExpensesFragment", "Error setting up users listener: ${e.message}")
         }
@@ -892,11 +897,11 @@ class ExpensesFragment : Fragment() {
         try {
             android.util.Log.d("ExpensesFragment", "Updating expenses for month: $selectedMonth")
             android.util.Log.d("ExpensesFragment", "Current data - Expenses: ${expenses.size}, Trainees: ${trainees.size}, Coaches: ${coaches.size}")
-            
+
             // Update adapter's month and refresh totals
             (currentAdapter as? ExpensesAdapter)?.updateSelectedMonth(selectedMonth)
             updateTotals()
-            
+
             android.util.Log.d("ExpensesFragment", "Update completed successfully")
         } catch (e: Exception) {
             android.util.Log.e("ExpensesFragment", "Error updating expenses for month: ${e.message}")
@@ -905,17 +910,18 @@ class ExpensesFragment : Fragment() {
 
     private fun updateTotals() {
         try {
-            // Aggregate per-branch for selected month to drive top counters
+            // Use only direct income entries for the selected month
+            val totalIncome = calculateTotalIncomeForMonth(selectedMonth)
+
             val branches = getBranches()
-            var totalIncome = 0.0
             var totalManual = 0.0
             var totalAutoSalaries = 0.0
             branches.forEach { branch ->
                 val data = getBranchData(branch)
-                totalIncome += data.totalIncome
                 totalManual += data.manualExpenses
                 totalAutoSalaries += data.autoSalaries
             }
+
             val totalExpenses = totalManual + totalAutoSalaries
             val netAmount = totalIncome - totalExpenses
 
@@ -933,14 +939,8 @@ class ExpensesFragment : Fragment() {
     }
 
     private fun isExpenseInMonth(expense: Expense, month: String): Boolean {
-        return try {
-            val expenseDate = Calendar.getInstance()
-            expenseDate.time = expense.date.toDate()
-            val expenseMonth = dateFormat.format(expenseDate.time)
-            expenseMonth == month
-        } catch (e: Exception) {
-            false
-        }
+        // FIX: rely on stored month field, not recalculated date
+        return expense.month == month
     }
 
     private fun showAddExpenseDialog() {

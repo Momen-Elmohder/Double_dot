@@ -11,8 +11,9 @@ data class Trainee(
     val branch: String = "",
     var coachId: String = "",
     val coachName: String = "",
-    val monthlyFee: Int = 0,
+    val monthlyFee: Double = 0.0,
     val paymentAmount: Double = 0.0,
+    val paymentMonth: String = "",
     val isPaid: Boolean = false,
     val status: String = "active", // active, inactive, frozen, completed
     val totalSessions: Int = 0,
@@ -24,4 +25,4 @@ data class Trainee(
     // Schedule fields
     val scheduleDays: List<String> = emptyList(), // Arabic day names
     val scheduleTime: String = "" // Arabic time slot
-) 
+)

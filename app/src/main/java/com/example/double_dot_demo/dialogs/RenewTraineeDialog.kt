@@ -20,7 +20,7 @@ class RenewTraineeDialog(
 ) : Dialog(context) {
 
     private lateinit var binding: DialogRenewTraineeBinding
-    private var onRenewClickListener: ((Trainee, Int, Int) -> Unit)? = null
+    private var onRenewClickListener: ((Trainee, Int, Double) -> Unit)? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -30,12 +30,11 @@ class RenewTraineeDialog(
         setupViews()
         setupListeners()
     }
-
     private fun setupViews() {
         binding.tvTraineeName.text = trainee.name
         binding.tvCurrentSessions.text = "Current sessions: ${trainee.remainingSessions}"
         binding.tvCurrentFee.text = "Current fee: $${trainee.monthlyFee}"
-        
+
         // Set default values
         binding.etNewSessions.setText("10")
         binding.etNewFee.setText(trainee.monthlyFee.toString())
@@ -48,7 +47,7 @@ class RenewTraineeDialog(
 
         binding.btnRenew.setOnClickListener {
             val newSessions = binding.etNewSessions.text.toString().toIntOrNull()
-            val newFee = binding.etNewFee.text.toString().toIntOrNull()
+            val newFee = binding.etNewFee.text.toString().toDoubleOrNull()
 
             when {
                 newSessions == null -> {
@@ -60,7 +59,7 @@ class RenewTraineeDialog(
                 newFee == null -> {
                     Toast.makeText(context, "Please enter valid fee amount", Toast.LENGTH_SHORT).show()
                 }
-                newFee <= 0 -> {
+                newFee <= 0.0 -> {
                     Toast.makeText(context, "Fee amount must be greater than 0", Toast.LENGTH_SHORT).show()
                 }
                 else -> {
@@ -71,7 +70,7 @@ class RenewTraineeDialog(
         }
     }
 
-    fun setOnRenewClickListener(listener: (Trainee, Int, Int) -> Unit) {
+    fun setOnRenewClickListener(listener: (Trainee, Int, Double) -> Unit) {
         onRenewClickListener = listener
     }
-} 
+}

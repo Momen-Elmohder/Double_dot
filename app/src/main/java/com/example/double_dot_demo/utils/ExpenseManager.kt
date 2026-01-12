@@ -44,6 +44,40 @@ class ExpenseManager {
         }
     }
 
+    suspend fun resetTraineeFeesIfNewMonth() {
+        try {
+            val currentMonth = monthFormat.format(ServerTime.now())
+            val metaRef = firestore.collection("meta").document("billing")
+
+            val metaSnap = metaRef.get().await()
+            val lastResetMonth = metaSnap.getString("lastTraineeResetMonth")
+
+            // If already reset for this month, do nothing
+            if (lastResetMonth == currentMonth) return
+
+            // Reset all trainee paymentAmount to 0
+            val traineesSnap = firestore.collection("trainees").get().await()
+            val batch = firestore.batch()
+
+            for (doc in traineesSnap.documents) {
+                batch.update(doc.reference, "paymentAmount", 0.0)
+            }
+
+            // Save reset marker
+            batch.set(
+                metaRef,
+                mapOf(
+                    "lastTraineeResetMonth" to currentMonth,
+                    "updatedAt" to Timestamp.now()
+                )
+            )
+
+            batch.commit().await()
+        } catch (e: Exception) {
+            android.util.Log.e("ExpenseManager", "resetTraineeFeesIfNewMonth failed: ${e.message}")
+        }
+    }
+
     private fun parseMonth(monthLabel: String): Long {
         return try { monthFormat.parse(monthLabel)?.time ?: 0L } catch (_: Exception) { 0L }
     }
