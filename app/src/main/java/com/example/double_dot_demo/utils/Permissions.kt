@@ -41,6 +41,7 @@ object Permissions {
 
     private val canViewTraineeDetailsFull = setOf(Role.HEAD_COACH, Role.ADMIN, Role.HEAD_ADMIN)
 
+
     fun canAccessExpenses(role: Role) = role in canViewExpenses
     fun canEditExpenses(role: Role) = role in canEditExpenses
 

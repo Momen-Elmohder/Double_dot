@@ -1022,27 +1022,39 @@ class TraineesFragment : Fragment() {
     }
 
     private fun canEditTrainee(): Boolean {
-        return currentUserRole == "head_coach" || currentUserRole == "admin"
+        return currentUserRole == "head_coach" ||
+                currentUserRole == "admin" ||
+                currentUserRole == "head_admin"
     }
 
     private fun canDeleteTrainee(): Boolean {
-        return currentUserRole == "head_coach" || currentUserRole == "admin"
+        return currentUserRole == "head_coach" ||
+                currentUserRole == "admin" ||
+                currentUserRole == "head_admin"
     }
 
     private fun canTogglePayment(): Boolean {
-        return currentUserRole == "head_coach" || currentUserRole == "admin"
+        return currentUserRole == "head_coach" ||
+                currentUserRole == "admin" ||
+                currentUserRole == "head_admin"
     }
 
     private fun canRenewTrainee(): Boolean {
-        return currentUserRole == "head_coach" || currentUserRole == "admin"
+        return currentUserRole == "head_coach" ||
+                currentUserRole == "admin" ||
+                currentUserRole == "head_admin"
     }
 
     private fun canFreezeTrainee(): Boolean {
-        return currentUserRole == "head_coach" || currentUserRole == "admin"
+        return currentUserRole == "head_coach" ||
+                currentUserRole == "admin" ||
+                currentUserRole == "head_admin"
     }
 
     private fun canShowDetails(): Boolean {
-        return currentUserRole == "head_coach" || currentUserRole == "admin"
+        return currentUserRole == "head_coach" ||
+                currentUserRole == "admin" ||
+                currentUserRole == "head_admin"
     }
 
     private fun createTraineeExpenseEntry(
