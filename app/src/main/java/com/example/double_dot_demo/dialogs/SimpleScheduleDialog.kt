@@ -46,28 +46,56 @@ class SimpleScheduleDialog : DialogFragment() {
     
     private fun setupTraineeSpinner() {
         // Filter trainees by branch
-        val branchTrainees = allTrainees.filter { it.branch == branch }
+        val branchTrainees =
+            if (branch == "الفريق") {
+                allTrainees.filter { it.level == "team" }
+            } else {
+                allTrainees.filter { it.branch == branch }
+            }
+        val currentTrainees = allTrainees.filter { currentTraineeIds.contains(it.id) }
         val traineeNames = branchTrainees.map { it.name }
-        
+
         val adapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, traineeNames)
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         binding.actvTrainee.setAdapter(adapter)
-        
+
         binding.actvTrainee.setOnItemClickListener { _, _, position, _ ->
             selectedTraineeId = branchTrainees[position].id
         }
+
+        binding.tvDayTime.setOnLongClickListener {
+            if (currentTrainees.isEmpty()) {
+                Toast.makeText(requireContext(), "No trainees in this slot", Toast.LENGTH_SHORT).show()
+                return@setOnLongClickListener true
+            }
+
+            val names = currentTrainees.map { it.name }.toTypedArray()
+
+            androidx.appcompat.app.AlertDialog.Builder(requireContext())
+                .setTitle("Remove trainee")
+                .setItems(names) { _, which ->
+                    val traineeToRemove = currentTrainees[which]
+                    val updatedIds = currentTraineeIds.toMutableList()
+                    updatedIds.remove(traineeToRemove.id)
+                    onSaveListener?.invoke(day, timeSlot, updatedIds)
+                    dismiss()
+                }
+                .show()
+
+            true
+        }
     }
-    
+
     private fun setupClickListeners() {
         binding.btnCancel.setOnClickListener {
             dismiss()
         }
-        
+
         binding.btnSave.setOnClickListener {
             saveChanges()
         }
     }
-    
+
     private fun saveChanges() {
         selectedTraineeId?.let { newTraineeId ->
             val updatedIds = currentTraineeIds.toMutableList()
@@ -80,7 +108,7 @@ class SimpleScheduleDialog : DialogFragment() {
         }
         dismiss()
     }
-    
+
     fun setData(
         day: String,
         timeSlot: String,
@@ -94,14 +122,13 @@ class SimpleScheduleDialog : DialogFragment() {
         this.currentTraineeIds = currentTraineeIds
         this.allTrainees = allTrainees
     }
-    
+
     fun setOnSaveListener(listener: (String, String, List<String>) -> Unit) {
         onSaveListener = listener
     }
-    
+
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null
     }
 }
-

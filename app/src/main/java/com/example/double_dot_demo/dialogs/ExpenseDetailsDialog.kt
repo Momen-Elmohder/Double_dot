@@ -408,10 +408,10 @@ class ExpenseDetailsDialog(
     
     private fun calculateCommission(branch: String, traineeFee: Double): Double {
         return when (branch) {
-            "نادي التوكيلات" -> traineeFee * 0.40 // 40%
+            "نادي التوكيلات" -> traineeFee * 0.35 // 35
             "نادي اليخت" -> traineeFee * 0.30 // 30%
             "المدينة الرياضية" -> 200.0 // Fixed 200 pounds
-            else -> traineeFee * 0.40 // Default to 40%
+            else -> traineeFee * 0.35 // Default to 40%
         }
     }
 }

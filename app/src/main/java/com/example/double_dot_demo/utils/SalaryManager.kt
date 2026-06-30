@@ -20,7 +20,7 @@ class SalaryManager {
         private const val HEAD_COACH_BASE_SALARY = 2500.0
 
         // Branch-specific commission rates
-        private const val TOKEELAT_COMMISSION_RATE = 0.40 // 40% for نادي التوكيلات
+        private const val TOKEELAT_COMMISSION_RATE = 0.35 // 35% for نادي التوكيلات
         private const val YACHT_COMMISSION_RATE = 0.30 // 30% for نادي اليخت
         private const val MADINA_FIXED_AMOUNT = 200.0 // 200 pounds fixed for المدينة الرياضية
     }
@@ -60,7 +60,12 @@ class SalaryManager {
                 createdAt = Timestamp.now()
             )
 
-            db.collection(SALARIES_COLLECTION).add(salary).await()
+            val salaryId = "${employee.id}_$month"
+
+            db.collection(SALARIES_COLLECTION)
+                .document(salaryId)
+                .set(salary.copy(id = salaryId))
+                .await()
             Log.d(TAG, "Created salary record for ${employee.name} with base salary: $baseSalary")
             true
         } catch (e: Exception) {
@@ -255,16 +260,14 @@ class SalaryManager {
                 calculatedAt = Timestamp.now()
             )
 
-            if (existingSalary.isEmpty) {
-                // Create new salary record
-                val docRef = db.collection(SALARIES_COLLECTION).add(salary).await()
-                Log.d(TAG, "Created new ADMIN salary record for ${employee.name} - Month: $month, DocID: ${docRef.id}")
-            } else {
-                // Update existing salary record
-                val docId = existingSalary.documents[0].id
-                db.collection(SALARIES_COLLECTION).document(docId).set(salary.copy(id = docId)).await()
-                Log.d(TAG, "Updated ADMIN salary record for ${employee.name} - Month: $month, DocID: $docId")
-            }
+            val salaryId = "${employee.id}_$month"
+
+            db.collection(SALARIES_COLLECTION)
+                .document(salaryId)
+                .set(salary.copy(id = salaryId))
+                .await()
+
+            Log.d(TAG, "Saved ADMIN salary record for ${employee.name} - Month: $month, DocID: $salaryId")
 
         } catch (e: Exception) {
             Log.e(TAG, "Error calculating admin salary for ${employee.name}: ${e.message}")
@@ -314,15 +317,12 @@ class SalaryManager {
                     .get()
                     .await()
 
-                if (existingSalary.isEmpty) {
-                    db.collection("salaries").add(salary).await()
-                } else {
-                    val docId = existingSalary.documents.first().id
-                    db.collection("salaries")
-                        .document(docId)
-                        .set(salary.copy(id = docId))
-                        .await()
-                }
+                val salaryId = "${employee.id}_$month"
+
+                db.collection(SALARIES_COLLECTION)
+                    .document(salaryId)
+                    .set(salary.copy(id = salaryId))
+                    .await()
                 return
             }
 
@@ -432,16 +432,14 @@ class SalaryManager {
                 calculatedAt = Timestamp.now()
             )
 
-            if (existingSalary.isEmpty) {
-                // Create new salary record
-                val docRef = db.collection(SALARIES_COLLECTION).add(salary).await()
-                Log.d(TAG, "Created new salary record for ${employee.name} - Month: $month, DocID: ${docRef.id}")
-            } else {
-                // Update existing salary record
-                val docId = existingSalary.documents[0].id
-                db.collection(SALARIES_COLLECTION).document(docId).set(salary.copy(id = docId)).await()
-                Log.d(TAG, "Updated salary record for ${employee.name} - Month: $month, DocID: $docId")
-            }
+            val salaryId = "${employee.id}_$month"
+
+            db.collection(SALARIES_COLLECTION)
+                .document(salaryId)
+                .set(salary.copy(id = salaryId))
+                .await()
+
+            Log.d(TAG, "Saved salary record for ${employee.name} - Month: $month, DocID: $salaryId")
 
         } catch (e: Exception) {
             Log.e(TAG, "Error calculating coach salary for ${employee.name}: ${e.message}")

@@ -40,7 +40,7 @@ class WeeklyScheduleFragment : Fragment() {
     private var currentSchedule: WeeklySchedule? = null
     private var traineeNames: Map<String, String> = emptyMap()
     
-    private val branches = listOf("نادي التوكيلات", "نادي اليخت", "المدينة الرياضية")
+    private val branches = listOf("نادي التوكيلات", "نادي اليخت", "المدينة الرياضية",  "الفريق")
     
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -87,6 +87,8 @@ class WeeklyScheduleFragment : Fragment() {
     
     private fun setupRecyclerView() {
         scheduleAdapter = WeeklyScheduleAdapter { day, timeSlot, traineeIds ->
+            // TODO: Support removing individual trainees from a slot in SimpleScheduleDialog.
+            // The removal UI and logic live in SimpleScheduleDialog, not in WeeklyScheduleFragment.
             showEditCellDialog(day, timeSlot, traineeIds)
         }
         
@@ -160,7 +162,11 @@ class WeeklyScheduleFragment : Fragment() {
     }
     
     private suspend fun loadScheduleForBranch(branch: String) {
-        val scheduleId = "schedule_$branch"
+        val scheduleId =
+            if (branch == "الفريق")
+                "schedule_team"
+            else
+                "schedule_$branch"
         val document = firestore.collection("weekly_schedules")
             .document(scheduleId)
             .get()
@@ -256,7 +262,14 @@ class WeeklyScheduleFragment : Fragment() {
                     )
                     
                     // Save to Firestore using consistent document ID
-                    val scheduleId = if (schedule.id.isNotEmpty()) schedule.id else "schedule_$selectedBranch"
+                    val scheduleId =
+                        if (schedule.id.isNotEmpty()) {
+                            schedule.id
+                        } else if (selectedBranch == "الفريق") {
+                            "schedule_team"
+                        } else {
+                            "schedule_$selectedBranch"
+                        }
                     firestore.collection("weekly_schedules")
                         .document(scheduleId)
                         .set(updatedSchedule.copy(id = scheduleId))

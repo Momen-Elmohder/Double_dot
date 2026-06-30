@@ -16,6 +16,7 @@ data class Trainee(
     val paymentMonth: String = "",
     val isPaid: Boolean = false,
     val status: String = "active", // active, inactive, frozen, completed
+    val level: String = "",
     val totalSessions: Int = 0,
     val remainingSessions: Int = 0,
     var attendanceSessions: Map<String, AttendanceRecord> = mapOf(), // sessionId -> isPresent

@@ -34,8 +34,20 @@ class ScheduleManager {
             return
         }
         
-        val scheduleId = "schedule_${trainee.branch}"
-        
+        Log.e(
+            "SCHEDULE_DEBUG",
+            "name=${trainee.name}, level=${trainee.level}, branch='${trainee.branch}'"
+        )
+        val scheduleId =
+            if (trainee.level == "team")
+                "schedule_team"
+            else
+                "schedule_${trainee.branch}"
+        Log.e(
+            "SCHEDULE_DEBUG",
+            "scheduleId=$scheduleId"
+        )
+
         // Get or create schedule for the branch
         db.collection(SCHEDULES_COLLECTION)
             .document(scheduleId)
@@ -52,7 +64,7 @@ class ScheduleManager {
                         createdBy = "system"
                     )
                 }
-                
+
                 // Add trainee to schedule
                 val updatedSchedule = currentSchedule.addTrainee(
                     traineeId = trainee.id,
@@ -60,21 +72,29 @@ class ScheduleManager {
                     time = trainee.scheduleTime
                 ).copy(
                     updatedAt = Timestamp.now(),
-                    updatedBy = "system" // Or get current user ID
+                    updatedBy = "system"
                 )
-                
+
                 // Save updated schedule
                 db.collection(SCHEDULES_COLLECTION)
                     .document(scheduleId)
                     .set(updatedSchedule)
                     .addOnSuccessListener {
                         Log.d(TAG, "Trainee ${trainee.name} added to schedule successfully")
+                        Log.e(
+                            "SCHEDULE_SAVE",
+                            "SUCCESS -> $scheduleId : ${trainee.scheduleDays} @ ${trainee.scheduleTime}"
+                        )
                         Log.d(TAG, "Schedule ID: $scheduleId, Branch: ${trainee.branch}")
                         Log.d(TAG, "Days: ${trainee.scheduleDays}, Time: ${trainee.scheduleTime}")
                         onComplete(true)
                     }
                     .addOnFailureListener { e ->
                         Log.e(TAG, "Error adding trainee to schedule: ${e.message}")
+                        Log.e(
+                            "SCHEDULE_SAVE",
+                            "FAILED -> ${e.message}"
+                        )
                         onComplete(false)
                     }
             }
@@ -83,10 +103,14 @@ class ScheduleManager {
                 onComplete(false)
             }
     }
-    
+
     fun removeTraineeFromSchedule(trainee: Trainee, onComplete: (Boolean) -> Unit) {
-        val scheduleId = "schedule_${trainee.branch}"
-        
+        val scheduleId =
+            if (trainee.level == "team")
+                "schedule_team"
+            else
+                "schedule_${trainee.branch}"
+
         db.collection(SCHEDULES_COLLECTION)
             .document(scheduleId)
             .get()
@@ -96,15 +120,15 @@ class ScheduleManager {
                     onComplete(true) // Not an error
                     return@addOnSuccessListener
                 }
-                
+
                 val currentSchedule = document.toObject(WeeklySchedule::class.java)?.copy(id = document.id) ?: WeeklySchedule()
-                
+
                 // Remove trainee from schedule
                 val updatedSchedule = currentSchedule.removeTrainee(trainee.id).copy(
                     updatedAt = Timestamp.now(),
                     updatedBy = "system" // Or get current user ID
                 )
-                
+
                 // Save updated schedule
                 db.collection(SCHEDULES_COLLECTION)
                     .document(scheduleId)
@@ -123,20 +147,20 @@ class ScheduleManager {
                 onComplete(false)
             }
     }
-    
+
     fun updateTraineeInSchedule(
-        oldTrainee: Trainee, 
-        newTrainee: Trainee, 
+        oldTrainee: Trainee,
+        newTrainee: Trainee,
         onComplete: (Boolean) -> Unit
     ) {
         // If schedule info hasn't changed, no need to update
-        if (oldTrainee.scheduleDays == newTrainee.scheduleDays && 
+        if (oldTrainee.scheduleDays == newTrainee.scheduleDays &&
             oldTrainee.scheduleTime == newTrainee.scheduleTime &&
             oldTrainee.branch == newTrainee.branch) {
             onComplete(true)
             return
         }
-        
+
         // Remove from old schedule first
         removeTraineeFromSchedule(oldTrainee) { removeSuccess ->
             if (removeSuccess) {
@@ -147,9 +171,18 @@ class ScheduleManager {
             }
         }
     }
-    
-    fun removeTraineeByStatus(traineeId: String, branch: String, onComplete: (Boolean) -> Unit) {
-        val scheduleId = "schedule_$branch"
+
+    fun removeTraineeByStatus(
+        traineeId: String,
+        branch: String,
+        level: String,
+        onComplete: (Boolean) -> Unit
+    ) {
+        val scheduleId =
+            if (level == "team")
+                "schedule_team"
+            else
+                "schedule_$branch"
         
         db.collection(SCHEDULES_COLLECTION)
             .document(scheduleId)

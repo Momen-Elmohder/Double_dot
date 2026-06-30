@@ -47,6 +47,7 @@ class ExpensesFragment : Fragment() {
     private val trainees = mutableListOf<Trainee>()
     private val coaches = mutableListOf<Employee>()
     private val users = mutableListOf<Employee>()
+    private val archivedSalaries = mutableMapOf<String, Double>()
     
     private var expensesListener: com.google.firebase.firestore.ListenerRegistration? = null
     private var traineesListener: com.google.firebase.firestore.ListenerRegistration? = null
@@ -138,6 +139,7 @@ class ExpensesFragment : Fragment() {
                     trainees = trainees,
                     coaches = coaches,
                     selectedMonth = selectedMonth,
+                    archivedSalaries = archivedSalaries,
                     onEditExpense = { expense: Expense ->
                         showEditExpenseDialog(expense)
                     },
@@ -531,6 +533,12 @@ class ExpensesFragment : Fragment() {
             trainees.forEach { trainee -> if (trainee.branch.isNotEmpty()) branches.add(trainee.branch) }
             // Add from employees (coaches)
             coaches.forEach { coach -> if (coach.branch.isNotEmpty()) branches.add(coach.branch) }
+            // Add branches from archived salaries
+            archivedSalaries.keys.forEach { branch ->
+                if (branch.isNotBlank()) {
+                    branches.add(branch)
+                }
+            }
             branches.sorted().toList()
         } catch (e: Exception) {
             android.util.Log.e("ExpensesFragment", "Error getting branches: ${e.message}")
@@ -557,6 +565,29 @@ class ExpensesFragment : Fragment() {
             BranchData()
         }
     }
+    private fun getArchivedSalaryForBranch(branchName: String): Double {
+        return try {
+
+            android.util.Log.e(
+
+                "SALARY",
+
+                "$branchName archive=${archivedSalaries[branchName]}"
+
+            )
+            if (archivedSalaries.isNotEmpty()) {
+                archivedSalaries[branchName] ?: 0.0
+            } else {
+                calculateAutoSalariesForBranch(branchName)
+            }
+        } catch (e: Exception) {
+            android.util.Log.e(
+                "ExpensesFragment",
+                "Error getting archived salary for $branchName: ${e.message}"
+            )
+            0.0
+        }
+    }
 
     private fun calculateManualExpensesForBranch(branchName: String): Double {
         return try {
@@ -574,12 +605,85 @@ class ExpensesFragment : Fragment() {
 
     private fun calculateAutoSalariesForBranch(branchName: String): Double {
         return try {
+
+            // Use archived salaries whenever they were loaded for this branch
+            if (archivedSalaries.containsKey(branchName)) {
+                android.util.Log.e(
+                    "SALARY_SOURCE",
+                    "$branchName -> USING ARCHIVE = ${archivedSalaries[branchName]}"
+                )
+                return archivedSalaries[branchName] ?: 0.0
+            }
+
+            // Current month: calculate normally
+            android.util.Log.e(
+                "SALARY_SOURCE",
+                "$branchName -> USING LIVE CALCULATION"
+            )
             coaches.filter { it.branch == branchName }
-                .sumOf { coach -> calculateCoachSalary(coach) }
+                .sumOf { coach ->
+                    calculateCoachSalary(coach)
+                }
+
         } catch (e: Exception) {
-            android.util.Log.e("ExpensesFragment", "Error calculating auto salaries for $branchName: ${e.message}")
+            android.util.Log.e(
+                "ExpensesFragment",
+                "Error calculating auto salaries for $branchName: ${e.message}"
+            )
             0.0
         }
+    }
+    private fun loadArchivedSalaries() {
+
+        archivedSalaries.clear()
+
+        android.util.Log.e(
+            "ARCHIVE",
+            "Loading month = $selectedMonth"
+        )
+
+        db.collection("salary_archive")
+            .document(selectedMonth)
+            .collection("employees")
+            .get()
+            .addOnSuccessListener { docs ->
+
+                android.util.Log.e(
+                    "ARCHIVE",
+                    "Docs count = ${docs.size()}"
+                )
+
+                docs.forEach { doc ->
+
+                    val branch = doc.getString("branch") ?: ""
+                    val salary = doc.getDouble("finalSalary") ?: 0.0
+
+                    android.util.Log.e(
+                        "ARCHIVE",
+                        "Found $branch -> $salary"
+                    )
+
+                    archivedSalaries[branch] =
+                        (archivedSalaries[branch] ?: 0.0) + salary
+                }
+
+                android.util.Log.e(
+                    "ARCHIVE",
+                    "Final map = $archivedSalaries"
+                )
+
+                updateTotals()
+                (currentAdapter as? ExpensesAdapter)?.let { adapter ->
+                    adapter.updateSelectedMonth(selectedMonth)
+                    recyclerView?.adapter?.notifyDataSetChanged()
+                }
+            }
+            .addOnFailureListener {
+                android.util.Log.e(
+                    "ARCHIVE",
+                    "ERROR: ${it.message}"
+                )
+            }
     }
 
     private fun calculateTotalIncomeForBranch(branchName: String): Double {
@@ -607,7 +711,7 @@ class ExpensesFragment : Fragment() {
             val totalPayments = coachTrainees.sumOf { it.paymentAmount }
 
             // Calculate base salary (40% of total payments)
-            val baseSalary = totalPayments * 0.4
+            val baseSalary = totalPayments * 0.35
 
             // Calculate attendance stats
             val (presentCount, absentCount) = calculateAttendanceStats(coach)
@@ -900,6 +1004,8 @@ class ExpensesFragment : Fragment() {
 
             // Update adapter's month and refresh totals
             (currentAdapter as? ExpensesAdapter)?.updateSelectedMonth(selectedMonth)
+            loadArchivedSalaries()
+
             updateTotals()
 
             android.util.Log.d("ExpensesFragment", "Update completed successfully")
@@ -918,11 +1024,21 @@ class ExpensesFragment : Fragment() {
             var totalAutoSalaries = 0.0
             branches.forEach { branch ->
                 val data = getBranchData(branch)
+
+                android.util.Log.e(
+                    "TOTALS",
+                    "$branch -> salaries=${data.autoSalaries}"
+                )
+
                 totalManual += data.manualExpenses
                 totalAutoSalaries += data.autoSalaries
             }
 
             val totalExpenses = totalManual + totalAutoSalaries
+            android.util.Log.e(
+                "TOTALS",
+                "totalAutoSalaries=$totalAutoSalaries totalExpenses=$totalExpenses"
+            )
             val netAmount = totalIncome - totalExpenses
 
             tvTotalIncome?.text = "Total Income: $${String.format("%.2f", totalIncome)}"

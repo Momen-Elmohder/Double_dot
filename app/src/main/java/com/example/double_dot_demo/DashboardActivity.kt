@@ -36,6 +36,7 @@ import com.google.android.material.navigation.NavigationView
 import com.google.firebase.auth.FirebaseAuth
 import android.widget.Toast
 import kotlinx.coroutines.*
+import com.example.double_dot_demo.utils.MonthlyResetManager
 
 import com.example.double_dot_demo.dialogs.AddExpenseDialog
 
@@ -72,6 +73,7 @@ class DashboardActivity : AppCompatActivity(), NavigationView.OnNavigationItemSe
             // Force light mode regardless of system setting
             AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
             setContentView(R.layout.activity_dashboard)
+            MonthlyResetManager().resetTraineesIfNewMonth()
 
             // Simplified watermark overlay
             setupWatermark()

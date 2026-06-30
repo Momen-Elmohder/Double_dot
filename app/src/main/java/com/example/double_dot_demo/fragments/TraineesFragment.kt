@@ -753,55 +753,68 @@ class TraineesFragment : Fragment() {
         try {
             if (!isAdded || context == null) return
 
-            android.util.Log.d("TraineesFragment", "Attempting to delete trainee: ${trainee.name} (ID: ${trainee.id})")
-
-            val progressDialog = showLoadingDialog()
-
-            firestore.collection("trainees").document(trainee.id)
-                .delete()
-                .addOnSuccessListener {
-                    // Remove from schedule automatically
-                    scheduleManager.removeTraineeFromSchedule(trainee) { scheduleSuccess ->
-                        if (scheduleSuccess) {
-                            android.util.Log.d("TraineesFragment", "Trainee removed from schedule successfully")
-                        } else {
-                            android.util.Log.w("TraineesFragment", "Failed to remove trainee from schedule")
-                        }
-                    }
-
-                    progressDialog.dismiss()
-                    android.util.Log.d("TraineesFragment", "Trainee deleted successfully from Firestore: ${trainee.name}")
-                    showToast("Trainee deleted successfully")
-
-                    // Automatically calculate salary for the coach when trainee is deleted
-                    if (trainee.coachId.isNotEmpty()) {
-                        fragmentScope.launch {
-                            try {
-                                val success = salaryManager.recalculateSalaryForCoach(trainee.coachId)
-                                if (success) {
-                                    android.util.Log.d("TraineesFragment", "Salary calculated automatically for coach after deletion: ${trainee.coachId}")
-                                } else {
-                                    android.util.Log.w("TraineesFragment", "Failed to calculate salary for coach after deletion: ${trainee.coachId}")
-                                }
-                            } catch (e: Exception) {
-                                android.util.Log.e("TraineesFragment", "Error calculating salary after deletion: ${e.message}")
-                            }
-                        }
-                    }
-
-                    // Force refresh the list to ensure UI updates
-                    loadTrainees()
+            androidx.appcompat.app.AlertDialog.Builder(requireContext())
+                .setTitle("Delete Trainee")
+                .setMessage("Are you sure you want to delete ${trainee.name}?")
+                .setPositiveButton("Delete") { _, _ ->
+                    performDeleteTrainee(trainee)
                 }
-                .addOnFailureListener { e ->
-                    progressDialog.dismiss()
-                    android.util.Log.e("TraineesFragment", "Error deleting trainee: ${e.message}")
-                    android.util.Log.e("TraineesFragment", "Error details: ${e.cause}")
-                    showToast("Failed to delete trainee: ${e.message}")
-                }
+                .setNegativeButton("Cancel", null)
+                .show()
+
+            return
         } catch (e: Exception) {
             android.util.Log.e("TraineesFragment", "Exception in deleteTrainee: ${e.message}")
             android.util.Log.e("TraineesFragment", "Exception stack trace: ${e.stackTraceToString()}")
         }
+    }
+
+    private fun performDeleteTrainee(trainee: Trainee) {
+        android.util.Log.d("TraineesFragment", "Attempting to delete trainee: ${trainee.name} (ID: ${trainee.id})")
+
+        val progressDialog = showLoadingDialog()
+
+        firestore.collection("trainees").document(trainee.id)
+            .delete()
+            .addOnSuccessListener {
+                // Remove from schedule automatically
+                scheduleManager.removeTraineeFromSchedule(trainee) { scheduleSuccess ->
+                    if (scheduleSuccess) {
+                        android.util.Log.d("TraineesFragment", "Trainee removed from schedule successfully")
+                    } else {
+                        android.util.Log.w("TraineesFragment", "Failed to remove trainee from schedule")
+                    }
+                }
+
+                progressDialog.dismiss()
+                android.util.Log.d("TraineesFragment", "Trainee deleted successfully from Firestore: ${trainee.name}")
+                showToast("Trainee deleted successfully")
+
+                // Automatically calculate salary for the coach when trainee is deleted
+                if (trainee.coachId.isNotEmpty()) {
+                    fragmentScope.launch {
+                        try {
+                            val success = salaryManager.recalculateSalaryForCoach(trainee.coachId)
+                            if (success) {
+                                android.util.Log.d("TraineesFragment", "Salary calculated automatically for coach after deletion: ${trainee.coachId}")
+                            } else {
+                                android.util.Log.w("TraineesFragment", "Failed to calculate salary for coach after deletion: ${trainee.coachId}")
+                            }
+                        } catch (e: Exception) {
+                            android.util.Log.e("TraineesFragment", "Error calculating salary after deletion: ${e.message}")
+                        }
+                    }
+                }
+
+                // Force refresh the list to ensure UI updates
+                loadTrainees()
+            }
+            .addOnFailureListener { e ->
+                progressDialog.dismiss()
+                android.util.Log.e("TraineesFragment", "Error deleting trainee: ${e.message}")
+                android.util.Log.e("TraineesFragment", "Error details: ${e.cause}")
+                showToast("Failed to delete trainee: ${e.message}")
+            }
     }
 
     private fun showRenewTraineeDialog(trainee: Trainee) {
@@ -885,7 +898,11 @@ class TraineesFragment : Fragment() {
                     // Handle schedule changes based on status
                     if (newStatus == "frozen") {
                         // Remove from schedule when frozen
-                        scheduleManager.removeTraineeByStatus(trainee.id, trainee.branch) { scheduleSuccess ->
+                        scheduleManager.removeTraineeByStatus(
+                            trainee.id,
+                            trainee.branch,
+                            trainee.level
+                        ) { scheduleSuccess ->
                             if (scheduleSuccess) {
                                 android.util.Log.d("TraineesFragment", "Frozen trainee removed from schedule")
                             } else {

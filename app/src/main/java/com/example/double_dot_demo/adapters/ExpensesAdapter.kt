@@ -19,6 +19,7 @@ class ExpensesAdapter(
     private val trainees: List<Trainee>,
     private val coaches: List<Employee>,
     private var selectedMonth: String,
+    private val archivedSalaries: Map<String, Double>,
     private val onEditExpense: (Expense) -> Unit,
     private val onDeleteExpense: (Expense) -> Unit
 ) : RecyclerView.Adapter<ExpensesAdapter.ExpensesViewHolder>() {
@@ -110,7 +111,20 @@ class ExpensesAdapter(
                     branches.add(trainee.branch)
                 }
             }
-            
+
+            // Add branches from archived salaries
+
+            archivedSalaries.keys.forEach { branch ->
+
+                if (branch.isNotBlank()) {
+
+                    branches.add(branch)
+
+                }
+
+            }
+
+
             branches.sorted().toList()
         } catch (e: Exception) {
             android.util.Log.e("ExpensesAdapter", "Error getting branches: ${e.message}")
@@ -121,7 +135,11 @@ class ExpensesAdapter(
     private fun getBranchData(branchName: String): BranchData {
         return try {
             val manualExpenses = calculateManualExpensesForBranch(branchName)
-            val autoSalaries = calculateAutoSalariesForBranch(branchName)
+            val autoSalaries =
+                if (archivedSalaries.containsKey(branchName))
+                    archivedSalaries[branchName] ?: 0.0
+                else
+                    calculateAutoSalariesForBranch(branchName)
             val totalIncome = calculateTotalIncomeForBranch(branchName)
             
             // Calculate total amount (income - expenses)
@@ -214,7 +232,7 @@ class ExpensesAdapter(
 
     private fun calculateCommission(branch: String, traineeFee: Double): Double {
         return when (branch) {
-            "نادي التوكيلات" -> traineeFee * 0.40 // 40%
+            "نادي التوكيلات" -> traineeFee * 0.35 // 0.35%
             "نادي اليخت" -> traineeFee * 0.30 // 30%
             else -> 0.0
         }

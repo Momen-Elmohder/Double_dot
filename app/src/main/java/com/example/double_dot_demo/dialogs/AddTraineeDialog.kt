@@ -205,12 +205,12 @@ class AddTraineeDialog(
         binding.etAge.setText(trainee.age.toString())
         binding.etPhoneNumber.setText(trainee.phoneNumber)
         binding.actvBranch.setText(trainee.branch)
-        binding.actvStatus.setText(trainee.status)
+        binding.actvStatus.setText(trainee.level)
         binding.etTotalSessions.setText(trainee.totalSessions.toString())
         binding.actvCoach.setText(trainee.coachName)
         binding.etMonthlyFee.setText(trainee.monthlyFee.toString())
         binding.actvScheduleTime.setText(trainee.scheduleTime)
-        
+
         // Set schedule days checkboxes
         val selectedDays = trainee.scheduleDays
         binding.cbSunday.isChecked = selectedDays.contains("الأحد")
@@ -316,7 +316,7 @@ class AddTraineeDialog(
         val age = binding.etAge.text.toString().toInt()
         val phoneNumber = binding.etPhoneNumber.text.toString().trim()
         val branch = binding.actvBranch.text.toString().trim()
-        val status = binding.actvStatus.text.toString().trim()
+        val level = binding.actvStatus.text.toString().trim()
         val totalSessions = binding.etTotalSessions.text.toString().toInt()
         val coachName = binding.actvCoach.text.toString().trim()
         val coachId = coachNameToId[coachName] ?: ""
@@ -355,7 +355,8 @@ class AddTraineeDialog(
             monthlyFee = monthlyFee,
             paymentAmount = paymentAmount,
             isPaid = isPaid,
-            status = status,
+            status = trainee?.status ?: "active",
+            level = level,
             scheduleDays = selectedDays,
             scheduleTime = scheduleTime
         )
